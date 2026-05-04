@@ -122,7 +122,6 @@ export default function Home() {
 
       <br /><br />
 
-      {/* Upload Now */}
       <button
         onClick={async () => {
           if (!file) return alert("No file selected");
@@ -146,17 +145,18 @@ export default function Home() {
 
       <br /><br />
 
-      {/* Schedule Post */}
       <button
         onClick={async () => {
           if (!file) return alert("No file selected");
           if (!scheduledTime) return alert("Pick a time first");
 
+          const scheduledIsoTime = new Date(scheduledTime).toISOString();
+
           const fd = new FormData();
-          fd.append("file", file); // 🔥 THIS IS THE IMPORTANT LINE
+          fd.append("file", file);
           fd.append("title", title);
           fd.append("description", description + " " + hashtags);
-          fd.append("scheduledTime", scheduledTime);
+          fd.append("scheduledTime", scheduledIsoTime);
 
           const res = await fetch("/api/schedule", {
             method: "POST",
