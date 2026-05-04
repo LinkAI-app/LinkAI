@@ -10,20 +10,19 @@ export const authOptions = {
         params: {
           scope:
             "openid email profile https://www.googleapis.com/auth/youtube.upload",
-          access_type: "offline",
-          prompt: "consent",
         },
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account }: any) {
       if (account) {
         token.accessToken = account.access_token;
       }
+
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: any) {
       session.accessToken = token.accessToken;
       return session;
     },
