@@ -7,7 +7,7 @@ export async function POST(req: Request) {
   try {
     const session: any = await getServerSession(authOptions);
 
-    if (!session || !session.user?.email) {
+    if (!session || !session.user?.email || !session.accessToken) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
@@ -19,24 +19,15 @@ export async function POST(req: Request) {
     const scheduledTime = formData.get("scheduledTime") as string;
 
     if (!file || !title || !description || !scheduledTime) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // 🔥 Create unique file name
     const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2)}.${fileExt}`;
-
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
     const filePath = `${session.user.email}/${fileName}`;
 
-    // Convert file to buffer
     const bytes = await file.arrayBuffer();
 
-    // 🔥 Upload to Supabase Storage
     const { error: uploadError } = await supabaseAdmin.storage
       .from("videos")
       .upload(filePath, bytes, {
@@ -47,12 +38,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: uploadError.message }, { status: 500 });
     }
 
-    // 🔥 Get public URL
     const { data: publicUrlData } = supabaseAdmin.storage
       .from("videos")
       .getPublicUrl(filePath);
 
-    // 🔥 Save to database
     const { error: dbError } = await supabaseAdmin
       .from("scheduled_posts")
       .insert({
@@ -62,6 +51,7 @@ export async function POST(req: Request) {
         video_url: publicUrlData.publicUrl,
         scheduled_time: scheduledTime,
         status: "scheduled",
+        access_token: session.accessToken,
       });
 
     if (dbError) {
