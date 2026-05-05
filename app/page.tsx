@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 
 export default function Home() {
@@ -10,8 +10,24 @@ export default function Home() {
   const [hashtags, setHashtags] = useState("");
   const [shortStatus, setShortStatus] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
+  const [posts, setPosts] = useState<any[]>([]);
 
   const { data: session } = useSession();
+
+  async function loadPosts() {
+    const res = await fetch("/api/posts");
+    const data = await res.json();
+
+    if (data.posts) {
+      setPosts(data.posts);
+    }
+  }
+
+  useEffect(() => {
+    if (session) {
+      loadPosts();
+    }
+  }, [session]);
 
   function checkIfShort(videoFile: File) {
     const video = document.createElement("video");
@@ -169,6 +185,7 @@ export default function Home() {
             alert(data.error);
           } else {
             alert("Scheduled successfully");
+            loadPosts();
           }
         }}
       >
@@ -181,6 +198,52 @@ export default function Home() {
         <video width="300" controls>
           <source src={URL.createObjectURL(file)} />
         </video>
+      )}
+
+      <hr />
+
+      <h2>Dashboard</h2>
+
+      <button onClick={loadPosts}>Refresh Dashboard</button>
+
+      <br /><br />
+
+      {posts.length === 0 ? (
+        <p>No posts yet.</p>
+      ) : (
+        posts.map((post) => (
+          <div
+            key={post.id}
+            style={{
+              border: "1px solid #ccc",
+              padding: "12px",
+              marginBottom: "12px",
+              borderRadius: "8px",
+            }}
+          >
+            <p><strong>Title:</strong> {post.title}</p>
+            <p><strong>Status:</strong> {post.status}</p>
+            <p><strong>Scheduled:</strong> {post.scheduled_time}</p>
+
+            {post.youtube_video_id && (
+              <p>
+                <strong>YouTube:</strong>{" "}
+                <a
+                  href={`https://www.youtube.com/watch?v=${post.youtube_video_id}`}
+                  target="_blank"
+                >
+                  Open video
+                </a>
+              </p>
+            )}
+
+            {post.error_message && (
+              <p style={{ color: "red" }}>
+                <strong>Error:</strong> {post.error_message}
+              </p>
+            )}
+          </div>
+        ))
       )}
     </main>
   );
