@@ -59,7 +59,30 @@ export default function Home() {
       {session ? (
         <div>
           <p>Signed in as {session.user?.email}</p>
-          <button onClick={() => signOut()}>Sign out</button>
+
+          <button onClick={() => signOut()}>
+            Sign out
+          </button>
+
+          <br /><br />
+
+          <button
+            onClick={async () => {
+              const res = await fetch("/api/stripe/checkout", {
+                method: "POST",
+              });
+
+              const data = await res.json();
+
+              if (data.url) {
+                window.location.href = data.url;
+              } else {
+                alert(data.error || "Could not start checkout");
+              }
+            }}
+          >
+            Upgrade to Premium
+          </button>
         </div>
       ) : (
         <button onClick={() => signIn("google")}>
