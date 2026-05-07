@@ -60,13 +60,14 @@ export default function Home() {
         <div>
           <p>Signed in as {session.user?.email}</p>
 
-          <button onClick={() => signOut()}>
-            Sign out
-          </button>
+          <button onClick={() => signOut()}>Sign out</button>
 
-          <br /><br />
+          <br />
+          <br />
 
           <button
+            type="button"
+            style={{ position: "relative", zIndex: 10 }}
             onClick={async () => {
               const res = await fetch("/api/stripe/checkout", {
                 method: "POST",
@@ -85,12 +86,11 @@ export default function Home() {
           </button>
         </div>
       ) : (
-        <button onClick={() => signIn("google")}>
-          Sign in with YouTube
-        </button>
+        <button onClick={() => signIn("google")}>Sign in with YouTube</button>
       )}
 
-      <br /><br />
+      <br />
+      <br />
 
       <input
         value={title}
@@ -98,7 +98,8 @@ export default function Home() {
         placeholder="Title"
       />
 
-      <br /><br />
+      <br />
+      <br />
 
       <textarea
         value={description}
@@ -106,7 +107,8 @@ export default function Home() {
         placeholder="Description"
       />
 
-      <br /><br />
+      <br />
+      <br />
 
       <button
         onClick={async () => {
@@ -124,7 +126,8 @@ export default function Home() {
         Generate AI Caption
       </button>
 
-      <br /><br />
+      <br />
+      <br />
 
       <textarea
         value={hashtags}
@@ -132,7 +135,8 @@ export default function Home() {
         placeholder="Hashtags"
       />
 
-      <br /><br />
+      <br />
+      <br />
 
       <input
         type="file"
@@ -146,7 +150,8 @@ export default function Home() {
         }}
       />
 
-      <br /><br />
+      <br />
+      <br />
 
       {shortStatus && <p>{shortStatus}</p>}
 
@@ -159,7 +164,8 @@ export default function Home() {
         }}
       />
 
-      <br /><br />
+      <br />
+      <br />
 
       <button
         onClick={async () => {
@@ -182,7 +188,8 @@ export default function Home() {
         Upload Now
       </button>
 
-      <br /><br />
+      <br />
+      <br />
 
       <button
         onClick={async () => {
@@ -215,10 +222,15 @@ export default function Home() {
         Schedule Post
       </button>
 
-      <br /><br />
+      <br />
+      <br />
 
       {file && (
-        <video width="300" controls>
+        <video
+          width="300"
+          controls
+          style={{ display: "block", position: "relative", zIndex: 1 }}
+        >
           <source src={URL.createObjectURL(file)} />
         </video>
       )}
@@ -229,7 +241,8 @@ export default function Home() {
 
       <button onClick={loadPosts}>Refresh Dashboard</button>
 
-      <br /><br />
+      <br />
+      <br />
 
       {posts.length === 0 ? (
         <p>No posts yet.</p>
@@ -244,9 +257,15 @@ export default function Home() {
               borderRadius: "8px",
             }}
           >
-            <p><strong>Title:</strong> {post.title}</p>
-            <p><strong>Status:</strong> {post.status}</p>
-            <p><strong>Scheduled:</strong> {post.scheduled_time}</p>
+            <p>
+              <strong>Title:</strong> {post.title}
+            </p>
+            <p>
+              <strong>Status:</strong> {post.status}
+            </p>
+            <p>
+              <strong>Scheduled:</strong> {post.scheduled_time}
+            </p>
 
             {post.youtube_video_id && (
               <p>
