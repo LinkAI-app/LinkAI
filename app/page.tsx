@@ -60,33 +60,25 @@ export default function Home() {
         <div>
           <p>Signed in as {session.user?.email}</p>
 
-          <button onClick={() => signOut()}>Sign out</button>
+          <button onClick={() => signOut()}>
+            Sign out
+          </button>
 
           <br />
           <br />
 
           <button
-            type="button"
-            style={{ position: "relative", zIndex: 10 }}
-            onClick={async () => {
-              const res = await fetch("/api/stripe/checkout", {
-                method: "POST",
-              });
-
-              const data = await res.json();
-
-              if (data.url) {
-                window.location.href = data.url;
-              } else {
-                alert(data.error || "Could not start checkout");
-              }
+            onClick={() => {
+              alert("Button clicked");
             }}
           >
             Upgrade to Premium
           </button>
         </div>
       ) : (
-        <button onClick={() => signIn("google")}>Sign in with YouTube</button>
+        <button onClick={() => signIn("google")}>
+          Sign in with YouTube
+        </button>
       )}
 
       <br />
@@ -229,7 +221,11 @@ export default function Home() {
         <video
           width="300"
           controls
-          style={{ display: "block", position: "relative", zIndex: 1 }}
+          style={{
+            display: "block",
+            position: "relative",
+            zIndex: 1,
+          }}
         >
           <source src={URL.createObjectURL(file)} />
         </video>
@@ -239,7 +235,9 @@ export default function Home() {
 
       <h2>Dashboard</h2>
 
-      <button onClick={loadPosts}>Refresh Dashboard</button>
+      <button onClick={loadPosts}>
+        Refresh Dashboard
+      </button>
 
       <br />
       <br />
@@ -260,9 +258,11 @@ export default function Home() {
             <p>
               <strong>Title:</strong> {post.title}
             </p>
+
             <p>
               <strong>Status:</strong> {post.status}
             </p>
+
             <p>
               <strong>Scheduled:</strong> {post.scheduled_time}
             </p>
