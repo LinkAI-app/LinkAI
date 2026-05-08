@@ -1,16 +1,21 @@
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { headers } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2024-06-20",
+});
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: Request) {
   const body = await req.text();
 
-  const signature = (await headers()).get(
-    "stripe-signature"
-  ) as string;
+  const signature = (await headers()).get("stripe-signature") as string;
 
   let event: Stripe.Event;
 
@@ -22,7 +27,7 @@ export async function POST(req: Request) {
     );
   } catch (err: any) {
     return NextResponse.json(
-      { error: `Webhook Error: ${err.message}` },
+      { error: err.message },
       { status: 400 }
     );
   }
@@ -30,15 +35,13 @@ export async function POST(req: Request) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
 
-    const email = session.customer_email;
+    const email = session.customer_details?.email;
 
     if (email) {
-      await supabaseAdmin
+      await supabase
         .from("users")
-        .upsert({
-          email,
-          plan: "premium",
-        });
+        .update({ plan: "premium" })
+        .eq("email", email);
     }
   }
 
