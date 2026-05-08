@@ -69,8 +69,6 @@ export default function Home() {
 
           <button
             onClick={async () => {
-              alert("Starting checkout...");
-
               try {
                 const res = await fetch("/api/stripe/checkout", {
                   method: "POST",
@@ -78,16 +76,14 @@ export default function Home() {
 
                 const data = await res.json();
 
-                alert(JSON.stringify(data));
-
                 if (data.url) {
                   window.location.href = data.url;
                 } else {
-                  alert(data.error || "No Stripe URL returned");
+                  alert(data.error || "Could not start checkout");
                 }
               } catch (err) {
-                alert("Checkout failed");
                 console.error(err);
+                alert("Checkout failed");
               }
             }}
           >
@@ -129,6 +125,7 @@ export default function Home() {
           });
 
           const data = await res.json();
+
           setTitle(data.title);
           setDescription(data.description);
           setHashtags(data.hashtags);
@@ -183,6 +180,7 @@ export default function Home() {
           if (!file) return alert("No file selected");
 
           const fd = new FormData();
+
           fd.append("file", file);
           fd.append("title", title);
           fd.append("description", description + " " + hashtags);
@@ -193,6 +191,7 @@ export default function Home() {
           });
 
           const data = await res.json();
+
           alert(`Uploaded: ${data.id}`);
         }}
       >
@@ -205,11 +204,16 @@ export default function Home() {
       <button
         onClick={async () => {
           if (!file) return alert("No file selected");
-          if (!scheduledTime) return alert("Pick a time first");
 
-          const scheduledIsoTime = new Date(scheduledTime).toISOString();
+          if (!scheduledTime) {
+            return alert("Pick a time first");
+          }
+
+          const scheduledIsoTime =
+            new Date(scheduledTime).toISOString();
 
           const fd = new FormData();
+
           fd.append("file", file);
           fd.append("title", title);
           fd.append("description", description + " " + hashtags);
@@ -242,8 +246,6 @@ export default function Home() {
           controls
           style={{
             display: "block",
-            position: "relative",
-            zIndex: 1,
           }}
         >
           <source src={URL.createObjectURL(file)} />
