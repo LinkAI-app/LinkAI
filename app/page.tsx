@@ -68,8 +68,18 @@ export default function Home() {
           <br />
 
           <button
-            onClick={() => {
-              alert("Button clicked");
+            onClick={async () => {
+              const res = await fetch("/api/stripe/checkout", {
+                method: "POST",
+              });
+
+              const data = await res.json();
+
+              if (data.url) {
+                window.location.href = data.url;
+              } else {
+                alert(data.error || "Could not start checkout");
+              }
             }}
           >
             Upgrade to Premium
