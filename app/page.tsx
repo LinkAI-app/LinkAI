@@ -69,16 +69,25 @@ export default function Home() {
 
           <button
             onClick={async () => {
-              const res = await fetch("/api/stripe/checkout", {
-                method: "POST",
-              });
+              alert("Starting checkout...");
 
-              const data = await res.json();
+              try {
+                const res = await fetch("/api/stripe/checkout", {
+                  method: "POST",
+                });
 
-              if (data.url) {
-                window.location.href = data.url;
-              } else {
-                alert(data.error || "Could not start checkout");
+                const data = await res.json();
+
+                alert(JSON.stringify(data));
+
+                if (data.url) {
+                  window.location.href = data.url;
+                } else {
+                  alert(data.error || "No Stripe URL returned");
+                }
+              } catch (err) {
+                alert("Checkout failed");
+                console.error(err);
               }
             }}
           >
