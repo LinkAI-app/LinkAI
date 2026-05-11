@@ -4,58 +4,24 @@ import { useEffect, useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 
 export default function Home() {
-  const [file, setFile] = useState<File | null>(null);
-  const [title, setTitle] = useState("My AI Short 🚀");
-  const [description, setDescription] = useState("Uploaded from LinkAI");
-  const [hashtags, setHashtags] = useState("");
-  const [shortStatus, setShortStatus] = useState("");
-  const [scheduledTime, setScheduledTime] = useState("");
-  const [posts, setPosts] = useState<any[]>([]);
   const [plan, setPlan] = useState("free");
 
   const { data: session } = useSession();
 
-  async function loadPosts() {
-    const res = await fetch("/api/posts");
-    const data = await res.json();
-    if (data.posts) setPosts(data.posts);
-  }
-
   async function loadUserPlan() {
     const res = await fetch("/api/user");
     const data = await res.json();
-    if (data.plan) setPlan(data.plan);
+
+    if (data.plan) {
+      setPlan(data.plan);
+    }
   }
 
   useEffect(() => {
     if (session) {
-      loadPosts();
       loadUserPlan();
     }
   }, [session]);
-
-  function checkIfShort(videoFile: File) {
-    const video = document.createElement("video");
-    video.preload = "metadata";
-
-    video.onloadedmetadata = () => {
-      URL.revokeObjectURL(video.src);
-
-      const duration = video.duration;
-      const width = video.videoWidth;
-      const height = video.videoHeight;
-
-      if (duration <= 60 && height > width) {
-        setShortStatus("✅ Ready for YouTube Shorts");
-      } else {
-        setShortStatus(
-          `⚠️ Not ideal for Shorts: ${Math.round(duration)}s, ${width}x${height}`
-        );
-      }
-    };
-
-    video.src = URL.createObjectURL(videoFile);
-  }
 
   return (
     <main
@@ -67,284 +33,185 @@ export default function Home() {
         fontFamily: "Arial, sans-serif",
       }}
     >
-      <section style={{ maxWidth: "900px", margin: "0 auto" }}>
-        <div style={card}>
-          <h1 style={{ fontSize: "42px", margin: 0 }}>LinkAI 🚀</h1>
-          <p style={{ color: "#cbd5e1", fontSize: "18px" }}>
-            Upload once. Schedule smarter. Grow everywhere.
+      <section
+        style={{
+          maxWidth: "1000px",
+          margin: "0 auto",
+        }}
+      >
+        <div
+          style={{
+            background: "#111827",
+            border: "1px solid #334155",
+            borderRadius: "20px",
+            padding: "32px",
+            marginBottom: "24px",
+          }}
+        >
+          <h1
+            style={{
+              fontSize: "48px",
+              marginBottom: "10px",
+            }}
+          >
+            LinkAI 🚀
+          </h1>
+
+          <p
+            style={{
+              color: "#cbd5e1",
+              fontSize: "18px",
+              marginBottom: "24px",
+            }}
+          >
+            AI-powered creator growth platform for captions, trends,
+            hooks, scheduling, and social media automation.
           </p>
 
           {session ? (
             <div>
               <p style={{ color: "#cbd5e1" }}>
-                Signed in as <strong>{session.user?.email}</strong>
+                Signed in as{" "}
+                <strong>{session.user?.email}</strong>
               </p>
 
-              <span
+              <div
                 style={{
                   display: "inline-block",
-                  padding: "8px 12px",
+                  padding: "8px 14px",
                   borderRadius: "999px",
-                  background: plan === "premium" ? "#14532d" : "#334155",
-                  color: plan === "premium" ? "#86efac" : "#cbd5e1",
+                  background:
+                    plan === "premium"
+                      ? "#14532d"
+                      : "#334155",
+                  color:
+                    plan === "premium"
+                      ? "#86efac"
+                      : "#cbd5e1",
                   fontWeight: "bold",
-                  marginBottom: "14px",
+                  marginTop: "10px",
+                  marginBottom: "20px",
                 }}
               >
-                {plan === "premium" ? "Premium Plan" : "Free Plan"}
-              </span>
+                {plan === "premium"
+                  ? "Premium Plan"
+                  : "Free Plan"}
+              </div>
 
               <br />
 
-              <button onClick={() => signOut()} style={secondaryButton}>
-                Sign out
+              <button
+                onClick={() => signOut()}
+                style={secondaryButton}
+              >
+                Sign Out
               </button>
 
               {plan !== "premium" && (
                 <button
-                  onClick={async () => {
-                    try {
-                      const res = await fetch("/api/stripe/checkout", {
-                        method: "POST",
-                      });
-
-                      const data = await res.json();
-
-                      if (data.url) {
-                        window.location.href = data.url;
-                      } else {
-                        alert(data.error || "Could not start checkout");
-                      }
-                    } catch (err) {
-                      console.error(err);
-                      alert("Checkout failed");
-                    }
+                  style={{
+                    ...primaryButton,
+                    marginLeft: "12px",
                   }}
-                  style={{ ...primaryButton, marginLeft: "12px" }}
                 >
                   Upgrade to Premium
                 </button>
               )}
             </div>
           ) : (
-            <button onClick={() => signIn("google")} style={primaryButton}>
+            <button
+              onClick={() => signIn("google")}
+              style={primaryButton}
+            >
               Sign in with YouTube
             </button>
           )}
         </div>
 
         <div style={card}>
-          <h2>Create Post</h2>
+          <h2 style={sectionTitle}>
+            AI Content Tools
+          </h2>
 
-          {plan === "free" && (
-            <p style={{ color: "#facc15" }}>
-              Free plan: 3 scheduled uploads per day.
-            </p>
-          )}
-
-          {plan === "premium" && (
-            <p style={{ color: "#86efac" }}>
-              Premium active: unlimited scheduled uploads.
-            </p>
-          )}
-
-          <label style={label}>Title</label>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title"
-            style={input}
-          />
-
-          <label style={label}>Description</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Description"
-            style={textarea}
-          />
-
-          <button
-            onClick={async () => {
-              const res = await fetch("/api/ai/hashtags", {
-                method: "POST",
-                body: JSON.stringify({ title, description }),
-              });
-
-              const data = await res.json();
-              setTitle(data.title);
-              setDescription(data.description);
-              setHashtags(data.hashtags);
+          <ul
+            style={{
+              color: "#cbd5e1",
+              lineHeight: "2",
             }}
-            style={primaryButton}
           >
-            Generate AI Caption
-          </button>
-
-          <label style={label}>Hashtags</label>
-          <textarea
-            value={hashtags}
-            onChange={(e) => setHashtags(e.target.value)}
-            placeholder="#shorts #viral #creator"
-            style={textarea}
-          />
-
-          <label style={label}>Upload Video</label>
-          <input
-            type="file"
-            accept="video/*"
-            onChange={(e) => {
-              if (e.target.files) {
-                const f = e.target.files[0];
-                setFile(f);
-                checkIfShort(f);
-              }
-            }}
-            style={{ marginBottom: "14px" }}
-          />
-
-          {shortStatus && <p style={noticeBox}>{shortStatus}</p>}
-
-          <label style={label}>Schedule Time</label>
-          <input
-            type="datetime-local"
-            onChange={(e) => setScheduledTime(e.target.value)}
-            style={input}
-          />
-
-          <div style={{ marginTop: "16px" }}>
-            <button
-              onClick={async () => {
-                if (!file) return alert("No file selected");
-
-                const fd = new FormData();
-                fd.append("file", file);
-                fd.append("title", title);
-                fd.append("description", description + " " + hashtags);
-
-                const res = await fetch("/api/youtube/upload", {
-                  method: "POST",
-                  body: fd,
-                });
-
-                const data = await res.json();
-                alert(`Uploaded: ${data.id}`);
-              }}
-              style={secondaryButton}
-            >
-              Upload Now
-            </button>
-
-            <button
-              onClick={async () => {
-                if (!file) return alert("No file selected");
-                if (!scheduledTime) return alert("Pick a time first");
-
-                const scheduledIsoTime = new Date(scheduledTime).toISOString();
-
-                const fd = new FormData();
-                fd.append("file", file);
-                fd.append("title", title);
-                fd.append("description", description + " " + hashtags);
-                fd.append("scheduledTime", scheduledIsoTime);
-
-                const res = await fetch("/api/schedule", {
-                  method: "POST",
-                  body: fd,
-                });
-
-                const data = await res.json();
-
-                if (data.error) {
-                  alert(data.error);
-                } else {
-                  alert("Scheduled successfully");
-                  loadPosts();
-                  loadUserPlan();
-                }
-              }}
-              style={{ ...primaryButton, marginLeft: "12px" }}
-            >
-              Schedule Post
-            </button>
-          </div>
-
-          {file && (
-            <video
-              width="100%"
-              controls
-              style={{
-                display: "block",
-                marginTop: "20px",
-                borderRadius: "12px",
-                border: "1px solid #334155",
-              }}
-            >
-              <source src={URL.createObjectURL(file)} />
-            </video>
-          )}
+            <li>✅ AI-generated captions</li>
+            <li>✅ Trending hashtag recommendations</li>
+            <li>✅ Viral hook generation</li>
+            <li>✅ Content idea suggestions</li>
+            <li>✅ Smart posting strategies</li>
+            <li>✅ Social media scheduling</li>
+          </ul>
         </div>
 
         <div style={card}>
-          <div
+          <h2 style={sectionTitle}>
+            TikTok Integration
+          </h2>
+
+          <p
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
+              color: "#cbd5e1",
+              marginBottom: "20px",
+              lineHeight: "1.8",
             }}
           >
-            <h2>Dashboard</h2>
+            Connect your TikTok account to manage content,
+            analyze trends, generate viral hooks, and
+            streamline publishing workflows directly inside
+            LinkAI.
+          </p>
 
-            <button onClick={loadPosts} style={secondaryButton}>
-              Refresh
-            </button>
+          <button
+            style={{
+              background: "#ec4899",
+              color: "white",
+              border: "none",
+              padding: "12px 18px",
+              borderRadius: "10px",
+              fontWeight: "bold",
+              cursor: "pointer",
+            }}
+          >
+            Connect TikTok
+          </button>
+        </div>
+
+        <div style={card}>
+          <h2 style={sectionTitle}>
+            Trending Hook Intelligence
+          </h2>
+
+          <div style={trendCard}>
+            <h3>🔥 Trending Hook</h3>
+
+            <p style={{ color: "#cbd5e1" }}>
+              “Nobody talks about this AI trick but it
+              completely changed my content results...”
+            </p>
           </div>
 
-          {posts.length === 0 ? (
-            <p style={{ color: "#cbd5e1" }}>No posts yet.</p>
-          ) : (
-            posts.map((post) => (
-              <div key={post.id} style={postCard}>
-                <p>
-                  <strong>{post.title}</strong>
-                </p>
+          <div style={trendCard}>
+            <h3>📈 Trending Hashtags</h3>
 
-                <p>
-                  Status:{" "}
-                  <span
-                    style={{
-                      color:
-                        post.status === "posted"
-                          ? "#22c55e"
-                          : post.status === "failed"
-                          ? "#ef4444"
-                          : "#facc15",
-                    }}
-                  >
-                    {post.status}
-                  </span>
-                </p>
+            <p style={{ color: "#cbd5e1" }}>
+              #viral #fyp #contentcreator #aitools
+              #growthtips
+            </p>
+          </div>
 
-                <p style={{ color: "#cbd5e1" }}>
-                  Scheduled: {post.scheduled_time}
-                </p>
+          <div style={trendCard}>
+            <h3>🎥 Video Idea</h3>
 
-                {post.youtube_video_id && (
-                  <a
-                    href={`https://www.youtube.com/watch?v=${post.youtube_video_id}`}
-                    target="_blank"
-                    style={{ color: "#38bdf8" }}
-                  >
-                    Open YouTube video
-                  </a>
-                )}
-
-                {post.error_message && (
-                  <p style={{ color: "#ef4444" }}>{post.error_message}</p>
-                )}
-              </div>
-            ))
-          )}
+            <p style={{ color: "#cbd5e1" }}>
+              “3 mistakes creators make before posting
+              content”
+            </p>
+          </div>
         </div>
       </section>
     </main>
@@ -355,8 +222,8 @@ const primaryButton = {
   background: "#6366f1",
   color: "white",
   border: "none",
-  padding: "10px 16px",
-  borderRadius: "8px",
+  padding: "12px 18px",
+  borderRadius: "10px",
   cursor: "pointer",
   fontWeight: "bold",
 };
@@ -365,8 +232,8 @@ const secondaryButton = {
   background: "#1e293b",
   color: "white",
   border: "1px solid #475569",
-  padding: "10px 16px",
-  borderRadius: "8px",
+  padding: "12px 18px",
+  borderRadius: "10px",
   cursor: "pointer",
   fontWeight: "bold",
 };
@@ -374,49 +241,20 @@ const secondaryButton = {
 const card = {
   background: "#111827",
   border: "1px solid #334155",
-  borderRadius: "16px",
-  padding: "24px",
+  borderRadius: "20px",
+  padding: "28px",
   marginBottom: "24px",
 };
 
-const postCard = {
-  background: "#020617",
-  border: "1px solid #334155",
-  borderRadius: "12px",
-  padding: "16px",
-  marginBottom: "14px",
+const sectionTitle = {
+  fontSize: "28px",
+  marginBottom: "20px",
 };
 
-const label = {
-  display: "block",
-  marginTop: "16px",
-  marginBottom: "6px",
-  color: "#cbd5e1",
-};
-
-const input = {
-  width: "100%",
-  padding: "12px",
-  borderRadius: "8px",
-  border: "1px solid #334155",
-  background: "#020617",
-  color: "white",
-};
-
-const textarea = {
-  width: "100%",
-  minHeight: "90px",
-  padding: "12px",
-  borderRadius: "8px",
-  border: "1px solid #334155",
-  background: "#020617",
-  color: "white",
-};
-
-const noticeBox = {
+const trendCard = {
   background: "#020617",
   border: "1px solid #334155",
-  padding: "10px",
-  borderRadius: "8px",
-  color: "#cbd5e1",
+  borderRadius: "14px",
+  padding: "18px",
+  marginBottom: "16px",
 };
