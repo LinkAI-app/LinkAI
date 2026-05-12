@@ -1,260 +1,142 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useState } from "react";
 
-export default function Home() {
-  const [plan, setPlan] = useState("free");
+export default function DashboardPage() {
+  const [caption, setCaption] = useState("");
+  const [hooks, setHooks] = useState<string[]>([]);
+  const [hashtags, setHashtags] = useState<string[]>([]);
+  const [ideas, setIdeas] = useState<string[]>([]);
 
-  const { data: session } = useSession();
+  const generateContent = () => {
+    setCaption(
+      "POV: You finally found the AI tool that makes content creation easier 🚀"
+    );
 
-  async function loadUserPlan() {
-    const res = await fetch("/api/user");
-    const data = await res.json();
+    setHooks([
+      "Nobody talks about this growth strategy...",
+      "This changed the way I create content forever.",
+      "Stop scrolling if you want more views.",
+      "Here’s the secret creators use to go viral.",
+      "I wish I knew this earlier..."
+    ]);
 
-    if (data.plan) {
-      setPlan(data.plan);
-    }
-  }
+    setHashtags([
+      "#fyp",
+      "#viral",
+      "#contentcreator",
+      "#tiktokgrowth",
+      "#socialmedia",
+      "#ai",
+      "#entrepreneur",
+      "#reels"
+    ]);
 
-  useEffect(() => {
-    if (session) {
-      loadUserPlan();
-    }
-  }, [session]);
+    setIdeas([
+      "Show a before vs after using AI captions.",
+      "Record your content creation process.",
+      "Explain one creator mistake nobody talks about.",
+      "React to a trending TikTok strategy.",
+      "Create a short motivational entrepreneur reel."
+    ]);
+  };
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#0f172a",
-        color: "white",
-        padding: "32px",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
-      <section
-        style={{
-          maxWidth: "1000px",
-          margin: "0 auto",
-        }}
-      >
-        <div
-          style={{
-            background: "#111827",
-            border: "1px solid #334155",
-            borderRadius: "20px",
-            padding: "32px",
-            marginBottom: "24px",
-          }}
-        >
-          <h1
-            style={{
-              fontSize: "48px",
-              marginBottom: "10px",
-            }}
-          >
-            LinkAI 🚀
-          </h1>
+    <main className="min-h-screen bg-black text-white p-8">
+      <div className="max-w-5xl mx-auto">
+        <h1 className="text-5xl font-bold mb-3">
+          Welcome to LinkAI 🚀
+        </h1>
 
-          <p
-            style={{
-              color: "#cbd5e1",
-              fontSize: "18px",
-              marginBottom: "24px",
-            }}
-          >
-            AI-powered creator growth platform for captions, trends,
-            hooks, scheduling, and social media automation.
-          </p>
+        <p className="text-gray-400 mb-10 text-lg">
+          AI-powered tools for creators, influencers, and brands.
+        </p>
 
-          {session ? (
-            <div>
-              <p style={{ color: "#cbd5e1" }}>
-                Signed in as{" "}
-                <strong>{session.user?.email}</strong>
-              </p>
-
-              <div
-                style={{
-                  display: "inline-block",
-                  padding: "8px 14px",
-                  borderRadius: "999px",
-                  background:
-                    plan === "premium"
-                      ? "#14532d"
-                      : "#334155",
-                  color:
-                    plan === "premium"
-                      ? "#86efac"
-                      : "#cbd5e1",
-                  fontWeight: "bold",
-                  marginTop: "10px",
-                  marginBottom: "20px",
-                }}
-              >
-                {plan === "premium"
-                  ? "Premium Plan"
-                  : "Free Plan"}
-              </div>
-
-              <br />
-
-              <button
-                onClick={() => signOut()}
-                style={secondaryButton}
-              >
-                Sign Out
-              </button>
-
-              {plan !== "premium" && (
-                <button
-                  style={{
-                    ...primaryButton,
-                    marginLeft: "12px",
-                  }}
-                >
-                  Upgrade to Premium
-                </button>
-              )}
-            </div>
-          ) : (
-            <button
-              onClick={() => signIn("google")}
-              style={primaryButton}
-            >
-              Sign in with YouTube
-            </button>
-          )}
-        </div>
-
-        <div style={card}>
-          <h2 style={sectionTitle}>
-            AI Content Tools
-          </h2>
-
-          <ul
-            style={{
-              color: "#cbd5e1",
-              lineHeight: "2",
-            }}
-          >
-            <li>✅ AI-generated captions</li>
-            <li>✅ Trending hashtag recommendations</li>
-            <li>✅ Viral hook generation</li>
-            <li>✅ Content idea suggestions</li>
-            <li>✅ Smart posting strategies</li>
-            <li>✅ Social media scheduling</li>
-          </ul>
-        </div>
-
-        <div style={card}>
-          <h2 style={sectionTitle}>
-            TikTok Integration
-          </h2>
-
-          <p
-            style={{
-              color: "#cbd5e1",
-              marginBottom: "20px",
-              lineHeight: "1.8",
-            }}
-          >
-            Connect your TikTok account to manage content,
-            analyze trends, generate viral hooks, and
-            streamline publishing workflows directly inside
-            LinkAI.
-          </p>
-
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
           <button
-            style={{
-              background: "#ec4899",
-              color: "white",
-              border: "none",
-              padding: "12px 18px",
-              borderRadius: "10px",
-              fontWeight: "bold",
-              cursor: "pointer",
-            }}
+            className="bg-[#fe2c55] text-white p-5 rounded-2xl text-lg font-semibold hover:opacity-90 transition"
+            onClick={() =>
+              alert("TikTok connected successfully")
+            }
           >
             Connect TikTok
           </button>
+
+          <button
+            className="bg-white text-black p-5 rounded-2xl text-lg font-semibold hover:opacity-90 transition"
+            onClick={generateContent}
+          >
+            Generate Viral Content
+          </button>
         </div>
 
-        <div style={card}>
-          <h2 style={sectionTitle}>
-            Trending Hook Intelligence
-          </h2>
+        {caption && (
+          <div className="bg-[#111] p-6 rounded-2xl mb-6 border border-gray-800">
+            <h2 className="text-2xl font-bold mb-3">
+              AI Caption
+            </h2>
 
-          <div style={trendCard}>
-            <h3>🔥 Trending Hook</h3>
-
-            <p style={{ color: "#cbd5e1" }}>
-              “Nobody talks about this AI trick but it
-              completely changed my content results...”
-            </p>
+            <p className="text-gray-300">{caption}</p>
           </div>
+        )}
 
-          <div style={trendCard}>
-            <h3>📈 Trending Hashtags</h3>
+        {hooks.length > 0 && (
+          <div className="bg-[#111] p-6 rounded-2xl mb-6 border border-gray-800">
+            <h2 className="text-2xl font-bold mb-4">
+              Trending Hooks
+            </h2>
 
-            <p style={{ color: "#cbd5e1" }}>
-              #viral #fyp #contentcreator #aitools
-              #growthtips
-            </p>
+            <div className="space-y-3">
+              {hooks.map((hook, index) => (
+                <div
+                  key={index}
+                  className="bg-black p-4 rounded-xl border border-gray-700"
+                >
+                  {hook}
+                </div>
+              ))}
+            </div>
           </div>
+        )}
 
-          <div style={trendCard}>
-            <h3>🎥 Video Idea</h3>
+        {hashtags.length > 0 && (
+          <div className="bg-[#111] p-6 rounded-2xl mb-6 border border-gray-800">
+            <h2 className="text-2xl font-bold mb-4">
+              Trending Hashtags
+            </h2>
 
-            <p style={{ color: "#cbd5e1" }}>
-              “3 mistakes creators make before posting
-              content”
-            </p>
+            <div className="flex flex-wrap gap-3">
+              {hashtags.map((tag, index) => (
+                <div
+                  key={index}
+                  className="bg-[#fe2c55] px-4 py-2 rounded-full"
+                >
+                  {tag}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        )}
+
+        {ideas.length > 0 && (
+          <div className="bg-[#111] p-6 rounded-2xl border border-gray-800">
+            <h2 className="text-2xl font-bold mb-4">
+              Viral Video Ideas
+            </h2>
+
+            <div className="space-y-3">
+              {ideas.map((idea, index) => (
+                <div
+                  key={index}
+                  className="bg-black p-4 rounded-xl border border-gray-700"
+                >
+                  {idea}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </main>
   );
 }
-
-const primaryButton = {
-  background: "#6366f1",
-  color: "white",
-  border: "none",
-  padding: "12px 18px",
-  borderRadius: "10px",
-  cursor: "pointer",
-  fontWeight: "bold",
-};
-
-const secondaryButton = {
-  background: "#1e293b",
-  color: "white",
-  border: "1px solid #475569",
-  padding: "12px 18px",
-  borderRadius: "10px",
-  cursor: "pointer",
-  fontWeight: "bold",
-};
-
-const card = {
-  background: "#111827",
-  border: "1px solid #334155",
-  borderRadius: "20px",
-  padding: "28px",
-  marginBottom: "24px",
-};
-
-const sectionTitle = {
-  fontSize: "28px",
-  marginBottom: "20px",
-};
-
-const trendCard = {
-  background: "#020617",
-  border: "1px solid #334155",
-  borderRadius: "14px",
-  padding: "18px",
-  marginBottom: "16px",
-};
