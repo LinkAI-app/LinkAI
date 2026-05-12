@@ -9,10 +9,18 @@ export async function POST(req: Request) {
   try {
     const { niche, platform } = await req.json();
 
-    const prompt = `
-Create viral content for ${platform} in the ${niche} niche.
+    const randomSeed = Math.random().toString(36).substring(2);
 
-Return ONLY valid JSON with this exact structure:
+    const prompt = `
+You are LinkAI, an AI content strategist.
+
+Generate NEW and UNIQUE content every time.
+
+Platform: ${platform}
+Niche: ${niche}
+Random creative seed: ${randomSeed}
+
+Return ONLY valid JSON:
 {
   "hooks": [
     "hook 1",
@@ -21,7 +29,7 @@ Return ONLY valid JSON with this exact structure:
     "hook 4",
     "hook 5"
   ],
-  "caption": "one optimized caption for ${platform}",
+  "caption": "one optimized caption",
   "hashtags": [
     "hashtag1",
     "hashtag2",
@@ -43,15 +51,19 @@ Return ONLY valid JSON with this exact structure:
   ]
 }
 
-Make the content feel native to ${platform}.
-If platform is YouTube, focus on Shorts titles, strong openings, and searchable ideas.
-If platform is TikTok, focus on fast hooks, trends, and curiosity.
-If platform is Instagram, focus on Reels, aesthetic captions, and shareable ideas.
-If platform is Facebook, focus on engagement, relatability, and community-style posts.
+Rules:
+- Do not repeat generic hooks.
+- Make hooks specific to ${platform}.
+- Make ideas specific to ${niche}.
+- Use different angles each time.
+- Avoid repeating previous common phrases.
 `;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
+      temperature: 1.1,
+      presence_penalty: 0.8,
+      frequency_penalty: 0.8,
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -70,38 +82,18 @@ If platform is Facebook, focus on engagement, relatability, and community-style 
       hashtags: data.hashtags || [],
       ideas: data.ideas || [],
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("AI GENERATE ERROR:", error);
 
-    return NextResponse.json({
-      hooks: [
-        "Nobody talks about this creator growth hack...",
-        "This changed the way I create content forever.",
-        "Stop scrolling if you want more views.",
-        "Here’s the secret creators use to go viral.",
-        "I wish I knew this before posting online.",
-      ],
-      caption:
-        "Create smarter, grow faster, and turn your ideas into content that performs. 🚀",
-      hashtags: [
-        "viral",
-        "fyp",
-        "contentcreator",
-        "aitools",
-        "growth",
-        "socialmedia",
-        "creator",
-        "marketing",
-        "trending",
-        "linkai",
-      ],
-      ideas: [
-        "Show a before and after transformation.",
-        "Explain one mistake beginners make.",
-        "Share a behind-the-scenes moment.",
-        "React to a trending topic in your niche.",
-        "Teach one simple tip in under 30 seconds.",
-      ],
-    });
+    return NextResponse.json(
+      {
+        error: error.message || "AI generation failed",
+        hooks: [],
+        caption: "",
+        hashtags: [],
+        ideas: [],
+      },
+      { status: 500 }
+    );
   }
 }
