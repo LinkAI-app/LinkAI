@@ -30,6 +30,7 @@ export default function Home() {
       });
 
       const data = await response.json();
+
       setResults(data);
     } catch (error) {
       console.error(error);
@@ -48,25 +49,31 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/analyze-video", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          platform,
-          niche,
-          language,
-          videoName: video.name,
-        }),
-      });
+      const formData = new FormData();
+
+      formData.append("video", video);
+      formData.append("platform", platform);
+      formData.append("niche", niche);
+      formData.append("language", language);
+
+      const response = await fetch(
+        "/api/analyze-video-frames",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       const data = await response.json();
 
       setResults({
+        viralScore: data.viralScore,
         analysis: data.analysis,
-        hooks: data.hooks || [],
+        hookFeedback: data.hookFeedback,
+        hooks: data.betterHooks || [],
+        caption: data.caption,
         hashtags: data.hashtags || [],
+        improvements: data.improvements || [],
       });
     } catch (error) {
       console.error(error);
@@ -76,7 +83,12 @@ export default function Home() {
     }
   }
 
-  const platforms = ["TikTok", "YouTube", "Instagram", "Facebook"];
+  const platforms = [
+    "TikTok",
+    "YouTube",
+    "Instagram",
+    "Facebook",
+  ];
 
   const languages = [
     "English",
@@ -113,11 +125,17 @@ export default function Home() {
       dir={language === "Arabic" ? "rtl" : "ltr"}
     >
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-5xl font-bold mb-2">LinkAI 🚀</h1>
+        <h1 className="text-5xl font-bold mb-2">
+          LinkAI 🚀
+        </h1>
 
-        <p className="text-gray-400 mb-8">{t.subtitle}</p>
+        <p className="text-gray-400 mb-8">
+          {t.subtitle}
+        </p>
 
-        <p className="mb-3 text-gray-300">{t.choosePlatform}</p>
+        <p className="mb-3 text-gray-300">
+          {t.choosePlatform}
+        </p>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {platforms.map((item) => (
@@ -136,7 +154,9 @@ export default function Home() {
         </div>
 
         <div className="mb-4">
-          <label className="block mb-2">{t.chooseNiche}</label>
+          <label className="block mb-2">
+            {t.chooseNiche}
+          </label>
 
           <select
             value={niche}
@@ -150,7 +170,9 @@ export default function Home() {
         </div>
 
         <div className="mb-6">
-          <label className="block mb-2">{t.chooseLanguage}</label>
+          <label className="block mb-2">
+            {t.chooseLanguage}
+          </label>
 
           <select
             value={language}
@@ -204,45 +226,85 @@ export default function Home() {
 
         {results && (
           <div className="space-y-6">
-            {results.hooks && results.hooks.length > 0 && (
+            {results.viralScore && (
               <div className="border border-zinc-800 rounded-xl p-6">
                 <h2 className="text-2xl font-bold mb-4">
-                  {t.viralHooks}
+                  Viral Score
                 </h2>
 
-                <div className="space-y-3">
-                  {results.hooks.map((hook: string, index: number) => (
-                    <div
-                      key={index}
-                      className="bg-zinc-900 p-4 rounded-xl"
-                    >
-                      {hook}
-                    </div>
-                  ))}
-                </div>
+                <p className="text-5xl font-bold text-pink-500">
+                  {results.viralScore}/100
+                </p>
               </div>
             )}
 
-            {results.hashtags && results.hashtags.length > 0 && (
+            {results.hookFeedback && (
               <div className="border border-zinc-800 rounded-xl p-6">
                 <h2 className="text-2xl font-bold mb-4">
-                  {t.hashtags}
+                  Hook Feedback
                 </h2>
 
-                <div className="flex flex-wrap gap-3">
-                  {results.hashtags.map(
-                    (tag: string, index: number) => (
-                      <div
-                        key={index}
-                        className="bg-pink-600 px-4 py-2 rounded-full"
-                      >
-                        #{tag.replace("#", "")}
-                      </div>
-                    )
-                  )}
-                </div>
+                <p className="text-gray-300">
+                  {results.hookFeedback}
+                </p>
               </div>
             )}
+
+            {results.hooks &&
+              results.hooks.length > 0 && (
+                <div className="border border-zinc-800 rounded-xl p-6">
+                  <h2 className="text-2xl font-bold mb-4">
+                    {t.viralHooks}
+                  </h2>
+
+                  <div className="space-y-3">
+                    {results.hooks.map(
+                      (hook: string, index: number) => (
+                        <div
+                          key={index}
+                          className="bg-zinc-900 p-4 rounded-xl"
+                        >
+                          {hook}
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+            {results.caption && (
+              <div className="border border-zinc-800 rounded-xl p-6">
+                <h2 className="text-2xl font-bold mb-4">
+                  Caption
+                </h2>
+
+                <p className="text-gray-300">
+                  {results.caption}
+                </p>
+              </div>
+            )}
+
+            {results.hashtags &&
+              results.hashtags.length > 0 && (
+                <div className="border border-zinc-800 rounded-xl p-6">
+                  <h2 className="text-2xl font-bold mb-4">
+                    {t.hashtags}
+                  </h2>
+
+                  <div className="flex flex-wrap gap-3">
+                    {results.hashtags.map(
+                      (tag: string, index: number) => (
+                        <div
+                          key={index}
+                          className="bg-pink-600 px-4 py-2 rounded-full"
+                        >
+                          #{tag.replace("#", "")}
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
 
             {results.analysis && (
               <div className="border border-zinc-800 rounded-xl p-6">
@@ -255,6 +317,23 @@ export default function Home() {
                 </p>
               </div>
             )}
+
+            {results.improvements &&
+              results.improvements.length > 0 && (
+                <div className="border border-zinc-800 rounded-xl p-6">
+                  <h2 className="text-2xl font-bold mb-4">
+                    Improvements
+                  </h2>
+
+                  <ul className="list-disc pl-6 space-y-2 text-gray-300">
+                    {results.improvements.map(
+                      (item: string, index: number) => (
+                        <li key={index}>{item}</li>
+                      )
+                    )}
+                  </ul>
+                </div>
+              )}
           </div>
         )}
       </div>
