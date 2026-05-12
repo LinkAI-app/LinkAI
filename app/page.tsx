@@ -1,73 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-const translations: any = {
-  English: {
-    title: "LinkAI 🚀",
-    subtitle: "AI content tools for creators.",
-    choosePlatform: "Choose platform",
-    chooseNiche: "Choose your niche",
-    chooseLanguage: "Choose language",
-    generate: "Generate Viral Content",
-    generating: "Generating...",
-    uploadVideo: "Upload video",
-    analyze: "Analyze My Video",
-    analyzing: "Analyzing...",
-    viralHooks: "Viral Hooks",
-    hashtags: "Trending Hashtags",
-    analysis: "AI Video Analysis",
-    uploadFirst: "Upload a video first.",
-  },
-  Spanish: {
-    title: "LinkAI 🚀",
-    subtitle: "Herramientas de IA para creadores.",
-    choosePlatform: "Elige una plataforma",
-    chooseNiche: "Elige tu nicho",
-    chooseLanguage: "Elige el idioma",
-    generate: "Generar contenido viral",
-    generating: "Generando...",
-    uploadVideo: "Subir video",
-    analyze: "Analizar mi video",
-    analyzing: "Analizando...",
-    viralHooks: "Hooks virales",
-    hashtags: "Hashtags en tendencia",
-    analysis: "Análisis de video con IA",
-    uploadFirst: "Primero sube un video.",
-  },
-  French: {
-    title: "LinkAI 🚀",
-    subtitle: "Outils d’IA pour les créateurs.",
-    choosePlatform: "Choisir une plateforme",
-    chooseNiche: "Choisir votre niche",
-    chooseLanguage: "Choisir la langue",
-    generate: "Générer du contenu viral",
-    generating: "Génération...",
-    uploadVideo: "Téléverser une vidéo",
-    analyze: "Analyser ma vidéo",
-    analyzing: "Analyse...",
-    viralHooks: "Accroches virales",
-    hashtags: "Hashtags tendance",
-    analysis: "Analyse vidéo IA",
-    uploadFirst: "Téléversez d’abord une vidéo.",
-  },
-  Portuguese: {
-    title: "LinkAI 🚀",
-    subtitle: "Ferramentas de IA para criadores.",
-    choosePlatform: "Escolha a plataforma",
-    chooseNiche: "Escolha seu nicho",
-    chooseLanguage: "Escolha o idioma",
-    generate: "Gerar conteúdo viral",
-    generating: "Gerando...",
-    uploadVideo: "Enviar vídeo",
-    analyze: "Analisar meu vídeo",
-    analyzing: "Analisando...",
-    viralHooks: "Ganchos virais",
-    hashtags: "Hashtags em alta",
-    analysis: "Análise de vídeo com IA",
-    uploadFirst: "Envie um vídeo primeiro.",
-  },
-};
+import { translations } from "@/lib/translations";
 
 export default function Home() {
   const [platform, setPlatform] = useState("TikTok");
@@ -88,20 +22,17 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          platform,
-          niche,
-          language,
-        }),
+        body: JSON.stringify({ platform, niche, language }),
       });
 
       const data = await response.json();
       setResults(data);
     } catch (error) {
       console.error(error);
+      alert("AI request failed.");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   async function analyzeVideo() {
@@ -130,9 +61,10 @@ export default function Home() {
       setResults(data);
     } catch (error) {
       console.error(error);
+      alert("Video analysis failed.");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   const platforms = ["TikTok", "YouTube", "Instagram", "Facebook"];
@@ -142,6 +74,13 @@ export default function Home() {
     "Spanish",
     "French",
     "Portuguese",
+    "Italian",
+    "German",
+    "Arabic",
+    "Hindi",
+    "Chinese",
+    "Japanese",
+    "Korean",
   ];
 
   const niches = [
@@ -153,12 +92,19 @@ export default function Home() {
     "Motivation",
     "Beauty",
     "Tech",
+    "Food",
+    "Travel",
+    "Music",
+    "Real Estate",
   ];
 
   return (
-    <main className="min-h-screen bg-black text-white p-8">
+    <main
+      className="min-h-screen bg-black text-white p-8"
+      dir={language === "Arabic" ? "rtl" : "ltr"}
+    >
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-5xl font-bold mb-2">{t.title}</h1>
+        <h1 className="text-5xl font-bold mb-2">LinkAI 🚀</h1>
 
         <p className="text-gray-400 mb-8">{t.subtitle}</p>
 
@@ -223,9 +169,7 @@ export default function Home() {
             type="file"
             accept="video/*"
             onChange={(e) => {
-              if (e.target.files?.[0]) {
-                setVideo(e.target.files[0]);
-              }
+              if (e.target.files?.[0]) setVideo(e.target.files[0]);
             }}
             className="mb-4"
           />
@@ -243,16 +187,11 @@ export default function Home() {
           <div className="space-y-6">
             {results.hooks && (
               <div className="border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold mb-4">
-                  {t.viralHooks}
-                </h2>
+                <h2 className="text-2xl font-bold mb-4">{t.viralHooks}</h2>
 
                 <div className="space-y-3">
                   {results.hooks.map((hook: string, index: number) => (
-                    <div
-                      key={index}
-                      className="bg-zinc-900 p-4 rounded-xl"
-                    >
+                    <div key={index} className="bg-zinc-900 p-4 rounded-xl">
                       {hook}
                     </div>
                   ))}
@@ -260,11 +199,16 @@ export default function Home() {
               </div>
             )}
 
+            {results.caption && (
+              <div className="border border-zinc-800 rounded-xl p-6">
+                <h2 className="text-2xl font-bold mb-4">Caption</h2>
+                <p className="text-gray-300">{results.caption}</p>
+              </div>
+            )}
+
             {results.hashtags && (
               <div className="border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold mb-4">
-                  {t.hashtags}
-                </h2>
+                <h2 className="text-2xl font-bold mb-4">{t.hashtags}</h2>
 
                 <div className="flex flex-wrap gap-3">
                   {results.hashtags.map((tag: string, index: number) => (
@@ -272,7 +216,7 @@ export default function Home() {
                       key={index}
                       className="bg-pink-600 px-4 py-2 rounded-full"
                     >
-                      {tag}
+                      #{tag.replace("#", "")}
                     </div>
                   ))}
                 </div>
@@ -281,9 +225,7 @@ export default function Home() {
 
             {results.analysis && (
               <div className="border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold mb-4">
-                  {t.analysis}
-                </h2>
+                <h2 className="text-2xl font-bold mb-4">{t.analysis}</h2>
 
                 <p className="text-gray-300 whitespace-pre-line">
                   {results.analysis}
