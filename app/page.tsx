@@ -2,115 +2,77 @@
 
 import { useState } from "react";
 
-export default function DashboardPage() {
-  const [niche, setNiche] = useState("Business");
+export default function Home() {
+  const [niche, setNiche] = useState("Fashion");
+  const [loading, setLoading] = useState(false);
+
   const [hooks, setHooks] = useState<string[]>([]);
+  const [caption, setCaption] = useState("");
   const [hashtags, setHashtags] = useState<string[]>([]);
-  const [ideas, setIdeas] = useState<string[]>([]);
 
-  const generateHooks = () => {
-    const hooksByNiche: any = {
-      Business: [
-        "Nobody tells entrepreneurs this...",
-        "This business strategy changed everything.",
-        "If I started over today, I’d do this.",
-        "The easiest way to grow online in 2025.",
-        "This is why most businesses fail."
-      ],
+  async function generateContent() {
+    setLoading(true);
 
-      Fitness: [
-        "Stop doing this at the gym.",
-        "This workout mistake is ruining your gains.",
-        "The fastest way to lose fat naturally.",
-        "I wish I knew this fitness hack sooner.",
-        "This changed my physique completely."
-      ],
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ niche }),
+      });
 
-      Fashion: [
-        "This outfit trick makes you look expensive.",
-        "Fashion creators are hiding this secret.",
-        "The trend everyone will wear this summer.",
-        "This instantly upgrades your style.",
-        "POV: your outfit finally looks luxury."
-      ],
+      const data = await response.json();
 
-      Motivation: [
-        "You needed to hear this today.",
-        "Your future depends on what you do now.",
-        "This mindset changed my entire life.",
-        "Nobody is coming to save you.",
-        "Start before you feel ready."
-      ]
-    };
+      setHooks(data.hooks || []);
+      setCaption(data.caption || "");
+      setHashtags(data.hashtags || []);
+    } catch (error) {
+      console.error(error);
+    }
 
-    setHooks(hooksByNiche[niche]);
-
-    setHashtags([
-      "#viral",
-      "#fyp",
-      "#trending",
-      "#contentcreator",
-      "#ai",
-      "#growth"
-    ]);
-
-    setIdeas([
-      `Create a short ${niche} transformation video.`,
-      `Share a secret tip about ${niche}.`,
-      `React to a trending ${niche} topic.`,
-      `Teach beginners something valuable.`,
-      `Tell a personal story related to ${niche}.`
-    ]);
-  };
+    setLoading(false);
+  }
 
   return (
     <main className="min-h-screen bg-black text-white p-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-5xl font-bold mb-3">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-5xl font-bold mb-2">
           LinkAI 🚀
         </h1>
 
-        <p className="text-gray-400 mb-10 text-lg">
+        <p className="text-gray-400 mb-8">
           AI tools for creators who want to grow faster.
         </p>
 
-        <div className="grid md:grid-cols-2 gap-6 mb-6">
-          <button
-            className="bg-[#fe2c55] text-white p-5 rounded-2xl text-lg font-semibold hover:opacity-90 transition"
-            onClick={() =>
-              alert("TikTok connected successfully")
-            }
-          >
+        <div className="grid md:grid-cols-2 gap-4 mb-6">
+          <button className="bg-pink-600 hover:bg-pink-700 p-4 rounded-xl font-semibold">
             Connect TikTok
           </button>
 
-          <div className="bg-[#111] p-5 rounded-2xl border border-gray-800">
-            <p className="mb-3 text-gray-300">
-              Choose your niche
-            </p>
-
-            <select
-              value={niche}
-              onChange={(e) => setNiche(e.target.value)}
-              className="w-full bg-black border border-gray-700 rounded-xl p-3 text-white"
-            >
-              <option>Business</option>
-              <option>Fitness</option>
-              <option>Fashion</option>
-              <option>Motivation</option>
-            </select>
-          </div>
+          <select
+            value={niche}
+            onChange={(e) => setNiche(e.target.value)}
+            className="bg-zinc-900 border border-zinc-700 rounded-xl p-4"
+          >
+            <option>Fashion</option>
+            <option>Fitness</option>
+            <option>Beauty</option>
+            <option>Gaming</option>
+            <option>Business</option>
+            <option>Travel</option>
+          </select>
         </div>
 
         <button
-          onClick={generateHooks}
-          className="w-full bg-white text-black p-5 rounded-2xl text-xl font-bold hover:opacity-90 transition mb-8"
+          onClick={generateContent}
+          className="w-full bg-white text-black font-bold py-4 rounded-xl mb-8"
         >
-          Generate Viral Content
+          {loading ? "Generating..." : "Generate Viral Content"}
         </button>
 
         {hooks.length > 0 && (
-          <div className="bg-[#111] p-6 rounded-2xl mb-6 border border-gray-800">
+          <div className="bg-zinc-900 rounded-2xl p-6 mb-6">
             <h2 className="text-2xl font-bold mb-4">
               Viral Hooks
             </h2>
@@ -119,16 +81,11 @@ export default function DashboardPage() {
               {hooks.map((hook, index) => (
                 <div
                   key={index}
-                  className="bg-black border border-gray-700 p-4 rounded-xl flex justify-between items-center"
+                  className="border border-zinc-700 rounded-xl p-4 flex justify-between items-center"
                 >
-                  <span>{hook}</span>
+                  <p>{hook}</p>
 
-                  <button
-                    onClick={() =>
-                      navigator.clipboard.writeText(hook)
-                    }
-                    className="bg-[#fe2c55] px-3 py-1 rounded-lg text-sm"
-                  >
+                  <button className="bg-pink-600 px-4 py-2 rounded-lg text-sm">
                     Copy
                   </button>
                 </div>
@@ -137,8 +94,20 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {caption && (
+          <div className="bg-zinc-900 rounded-2xl p-6 mb-6">
+            <h2 className="text-2xl font-bold mb-4">
+              Viral Caption
+            </h2>
+
+            <p className="text-gray-300">
+              {caption}
+            </p>
+          </div>
+        )}
+
         {hashtags.length > 0 && (
-          <div className="bg-[#111] p-6 rounded-2xl mb-6 border border-gray-800">
+          <div className="bg-zinc-900 rounded-2xl p-6">
             <h2 className="text-2xl font-bold mb-4">
               Trending Hashtags
             </h2>
@@ -147,28 +116,9 @@ export default function DashboardPage() {
               {hashtags.map((tag, index) => (
                 <div
                   key={index}
-                  className="bg-[#fe2c55] px-4 py-2 rounded-full"
+                  className="bg-pink-600 px-4 py-2 rounded-full"
                 >
-                  {tag}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {ideas.length > 0 && (
-          <div className="bg-[#111] p-6 rounded-2xl border border-gray-800">
-            <h2 className="text-2xl font-bold mb-4">
-              Viral Video Ideas
-            </h2>
-
-            <div className="space-y-3">
-              {ideas.map((idea, index) => (
-                <div
-                  key={index}
-                  className="bg-black border border-gray-700 p-4 rounded-xl"
-                >
-                  {idea}
+                  #{tag}
                 </div>
               ))}
             </div>
