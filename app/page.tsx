@@ -3,12 +3,14 @@
 import { useState } from "react";
 
 export default function Home() {
+  const [platform, setPlatform] = useState("TikTok");
   const [niche, setNiche] = useState("Fashion");
   const [loading, setLoading] = useState(false);
 
   const [hooks, setHooks] = useState<string[]>([]);
   const [caption, setCaption] = useState("");
   const [hashtags, setHashtags] = useState<string[]>([]);
+  const [ideas, setIdeas] = useState<string[]>([]);
 
   async function generateContent() {
     setLoading(true);
@@ -19,7 +21,7 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ niche }),
+        body: JSON.stringify({ niche, platform }),
       });
 
       const data = await response.json();
@@ -27,33 +29,49 @@ export default function Home() {
       setHooks(data.hooks || []);
       setCaption(data.caption || "");
       setHashtags(data.hashtags || []);
+      setIdeas(data.ideas || []);
     } catch (error) {
       console.error(error);
+      alert("Something went wrong generating content.");
     }
 
     setLoading(false);
   }
 
+  const platforms = ["TikTok", "YouTube", "Instagram", "Facebook"];
+
   return (
     <main className="min-h-screen bg-black text-white p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-5xl font-bold mb-2">
-          LinkAI 🚀
-        </h1>
+      <div className="max-w-5xl mx-auto">
+        <h1 className="text-5xl font-bold mb-2">LinkAI 🚀</h1>
 
         <p className="text-gray-400 mb-8">
-          AI tools for creators who want to grow faster.
+          AI content tools for TikTok, YouTube, Instagram, and Facebook.
         </p>
 
-        <div className="grid md:grid-cols-2 gap-4 mb-6">
-          <button className="bg-pink-600 hover:bg-pink-700 p-4 rounded-xl font-semibold">
-            Connect TikTok
-          </button>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          {platforms.map((item) => (
+            <button
+              key={item}
+              onClick={() => setPlatform(item)}
+              className={`p-4 rounded-xl font-bold transition ${
+                platform === item
+                  ? "bg-pink-600 text-white"
+                  : "bg-zinc-900 text-gray-300 border border-zinc-700"
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-5 mb-6">
+          <p className="mb-3 text-gray-300">Choose your niche</p>
 
           <select
             value={niche}
             onChange={(e) => setNiche(e.target.value)}
-            className="bg-zinc-900 border border-zinc-700 rounded-xl p-4"
+            className="w-full bg-black border border-zinc-700 rounded-xl p-4 text-white"
           >
             <option>Fashion</option>
             <option>Fitness</option>
@@ -61,31 +79,41 @@ export default function Home() {
             <option>Gaming</option>
             <option>Business</option>
             <option>Travel</option>
+            <option>Motivation</option>
+            <option>Food</option>
+            <option>Real Estate</option>
+            <option>Music</option>
           </select>
         </div>
 
         <button
           onClick={generateContent}
-          className="w-full bg-white text-black font-bold py-4 rounded-xl mb-8"
+          disabled={loading}
+          className="w-full bg-white text-black font-bold py-4 rounded-xl mb-8 disabled:opacity-50"
         >
-          {loading ? "Generating..." : "Generate Viral Content"}
+          {loading
+            ? "Generating..."
+            : `Generate ${platform} Content`}
         </button>
 
         {hooks.length > 0 && (
-          <div className="bg-zinc-900 rounded-2xl p-6 mb-6">
+          <div className="bg-zinc-900 rounded-2xl p-6 mb-6 border border-zinc-800">
             <h2 className="text-2xl font-bold mb-4">
-              Viral Hooks
+              {platform} Hooks
             </h2>
 
             <div className="space-y-3">
               {hooks.map((hook, index) => (
                 <div
                   key={index}
-                  className="border border-zinc-700 rounded-xl p-4 flex justify-between items-center"
+                  className="border border-zinc-700 rounded-xl p-4 flex justify-between gap-4 items-center"
                 >
                   <p>{hook}</p>
 
-                  <button className="bg-pink-600 px-4 py-2 rounded-lg text-sm">
+                  <button
+                    onClick={() => navigator.clipboard.writeText(hook)}
+                    className="bg-pink-600 px-4 py-2 rounded-lg text-sm"
+                  >
                     Copy
                   </button>
                 </div>
@@ -95,21 +123,19 @@ export default function Home() {
         )}
 
         {caption && (
-          <div className="bg-zinc-900 rounded-2xl p-6 mb-6">
+          <div className="bg-zinc-900 rounded-2xl p-6 mb-6 border border-zinc-800">
             <h2 className="text-2xl font-bold mb-4">
-              Viral Caption
+              {platform} Caption
             </h2>
 
-            <p className="text-gray-300">
-              {caption}
-            </p>
+            <p className="text-gray-300">{caption}</p>
           </div>
         )}
 
         {hashtags.length > 0 && (
-          <div className="bg-zinc-900 rounded-2xl p-6">
+          <div className="bg-zinc-900 rounded-2xl p-6 mb-6 border border-zinc-800">
             <h2 className="text-2xl font-bold mb-4">
-              Trending Hashtags
+              {platform} Hashtags
             </h2>
 
             <div className="flex flex-wrap gap-3">
@@ -118,7 +144,26 @@ export default function Home() {
                   key={index}
                   className="bg-pink-600 px-4 py-2 rounded-full"
                 >
-                  #{tag}
+                  #{tag.replace("#", "")}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {ideas.length > 0 && (
+          <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
+            <h2 className="text-2xl font-bold mb-4">
+              {platform} Video Ideas
+            </h2>
+
+            <div className="space-y-3">
+              {ideas.map((idea, index) => (
+                <div
+                  key={index}
+                  className="border border-zinc-700 rounded-xl p-4"
+                >
+                  {idea}
                 </div>
               ))}
             </div>
