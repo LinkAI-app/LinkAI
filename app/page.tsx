@@ -21,10 +21,18 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ niche, platform }),
+        body: JSON.stringify({
+          niche,
+          platform,
+        }),
       });
 
       const data = await response.json();
+
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
 
       setHooks(data.hooks || []);
       setCaption(data.caption || "");
@@ -32,21 +40,28 @@ export default function Home() {
       setIdeas(data.ideas || []);
     } catch (error) {
       console.error(error);
-      alert("Something went wrong generating content.");
+      alert("AI request failed.");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
-  const platforms = ["TikTok", "YouTube", "Instagram", "Facebook"];
+  const platforms = [
+    "TikTok",
+    "YouTube",
+    "Instagram",
+    "Facebook",
+  ];
 
   return (
     <main className="min-h-screen bg-black text-white p-8">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-5xl font-bold mb-2">LinkAI 🚀</h1>
+        <h1 className="text-5xl font-bold mb-2">
+          LinkAI 🚀
+        </h1>
 
         <p className="text-gray-400 mb-8">
-          AI content tools for TikTok, YouTube, Instagram, and Facebook.
+          AI content tools for creators.
         </p>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -66,7 +81,9 @@ export default function Home() {
         </div>
 
         <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-5 mb-6">
-          <p className="mb-3 text-gray-300">Choose your niche</p>
+          <p className="mb-3 text-gray-300">
+            Choose your niche
+          </p>
 
           <select
             value={niche}
@@ -99,19 +116,21 @@ export default function Home() {
         {hooks.length > 0 && (
           <div className="bg-zinc-900 rounded-2xl p-6 mb-6 border border-zinc-800">
             <h2 className="text-2xl font-bold mb-4">
-              {platform} Hooks
+              Viral Hooks
             </h2>
 
             <div className="space-y-3">
               {hooks.map((hook, index) => (
                 <div
                   key={index}
-                  className="border border-zinc-700 rounded-xl p-4 flex justify-between gap-4 items-center"
+                  className="border border-zinc-700 rounded-xl p-4 flex justify-between items-center gap-4"
                 >
                   <p>{hook}</p>
 
                   <button
-                    onClick={() => navigator.clipboard.writeText(hook)}
+                    onClick={() =>
+                      navigator.clipboard.writeText(hook)
+                    }
                     className="bg-pink-600 px-4 py-2 rounded-lg text-sm"
                   >
                     Copy
@@ -125,17 +144,19 @@ export default function Home() {
         {caption && (
           <div className="bg-zinc-900 rounded-2xl p-6 mb-6 border border-zinc-800">
             <h2 className="text-2xl font-bold mb-4">
-              {platform} Caption
+              AI Caption
             </h2>
 
-            <p className="text-gray-300">{caption}</p>
+            <p className="text-gray-300">
+              {caption}
+            </p>
           </div>
         )}
 
         {hashtags.length > 0 && (
           <div className="bg-zinc-900 rounded-2xl p-6 mb-6 border border-zinc-800">
             <h2 className="text-2xl font-bold mb-4">
-              {platform} Hashtags
+              Trending Hashtags
             </h2>
 
             <div className="flex flex-wrap gap-3">
@@ -154,7 +175,7 @@ export default function Home() {
         {ideas.length > 0 && (
           <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
             <h2 className="text-2xl font-bold mb-4">
-              {platform} Video Ideas
+              Viral Video Ideas
             </h2>
 
             <div className="space-y-3">
