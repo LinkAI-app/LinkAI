@@ -22,7 +22,11 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ platform, niche, language }),
+        body: JSON.stringify({
+          platform,
+          niche,
+          language,
+        }),
       });
 
       const data = await response.json();
@@ -58,7 +62,12 @@ export default function Home() {
       });
 
       const data = await response.json();
-      setResults(data);
+
+      setResults({
+        analysis: data.analysis,
+        hooks: data.hooks || [],
+        hashtags: data.hashtags || [],
+      });
     } catch (error) {
       console.error(error);
       alert("Video analysis failed.");
@@ -115,7 +124,7 @@ export default function Home() {
             <button
               key={item}
               onClick={() => setPlatform(item)}
-              className={`p-4 rounded-xl border ${
+              className={`p-4 rounded-xl border transition ${
                 platform === item
                   ? "bg-pink-600 border-pink-600"
                   : "border-gray-700"
@@ -163,21 +172,31 @@ export default function Home() {
         </button>
 
         <div className="mb-6">
-          <label className="block mb-2">{t.uploadVideo}</label>
+          <label className="block mb-3 text-lg">
+            {t.uploadVideo}
+          </label>
 
-          <input
-            type="file"
-            accept="video/*"
-            onChange={(e) => {
-              if (e.target.files?.[0]) setVideo(e.target.files[0]);
-            }}
-            className="mb-4"
-          />
+          <label className="w-full flex items-center justify-center bg-zinc-900 border border-zinc-700 rounded-xl p-6 cursor-pointer hover:border-pink-500 transition">
+            <span className="text-gray-300">
+              {video ? video.name : t.uploadVideo}
+            </span>
+
+            <input
+              type="file"
+              accept="video/*"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files?.[0]) {
+                  setVideo(e.target.files[0]);
+                }
+              }}
+            />
+          </label>
 
           <button
             onClick={analyzeVideo}
             disabled={loading}
-            className="w-full bg-pink-600 p-4 rounded-xl font-bold disabled:opacity-50"
+            className="w-full bg-pink-600 p-4 rounded-xl font-bold mt-4 disabled:opacity-50"
           >
             {loading ? t.analyzing : t.analyze}
           </button>
@@ -185,13 +204,18 @@ export default function Home() {
 
         {results && (
           <div className="space-y-6">
-            {results.hooks && (
+            {results.hooks && results.hooks.length > 0 && (
               <div className="border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold mb-4">{t.viralHooks}</h2>
+                <h2 className="text-2xl font-bold mb-4">
+                  {t.viralHooks}
+                </h2>
 
                 <div className="space-y-3">
                   {results.hooks.map((hook: string, index: number) => (
-                    <div key={index} className="bg-zinc-900 p-4 rounded-xl">
+                    <div
+                      key={index}
+                      className="bg-zinc-900 p-4 rounded-xl"
+                    >
                       {hook}
                     </div>
                   ))}
@@ -199,33 +223,32 @@ export default function Home() {
               </div>
             )}
 
-            {results.caption && (
+            {results.hashtags && results.hashtags.length > 0 && (
               <div className="border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold mb-4">Caption</h2>
-                <p className="text-gray-300">{results.caption}</p>
-              </div>
-            )}
-
-            {results.hashtags && (
-              <div className="border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold mb-4">{t.hashtags}</h2>
+                <h2 className="text-2xl font-bold mb-4">
+                  {t.hashtags}
+                </h2>
 
                 <div className="flex flex-wrap gap-3">
-                  {results.hashtags.map((tag: string, index: number) => (
-                    <div
-                      key={index}
-                      className="bg-pink-600 px-4 py-2 rounded-full"
-                    >
-                      #{tag.replace("#", "")}
-                    </div>
-                  ))}
+                  {results.hashtags.map(
+                    (tag: string, index: number) => (
+                      <div
+                        key={index}
+                        className="bg-pink-600 px-4 py-2 rounded-full"
+                      >
+                        #{tag.replace("#", "")}
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
             )}
 
             {results.analysis && (
               <div className="border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold mb-4">{t.analysis}</h2>
+                <h2 className="text-2xl font-bold mb-4">
+                  {t.analysis}
+                </h2>
 
                 <p className="text-gray-300 whitespace-pre-line">
                   {results.analysis}
