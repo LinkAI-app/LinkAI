@@ -49,31 +49,25 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const formData = new FormData();
-
-      formData.append("video", video);
-      formData.append("platform", platform);
-      formData.append("niche", niche);
-      formData.append("language", language);
-
-      const response = await fetch(
-        "/api/analyze-video-frames",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const response = await fetch("/api/analyze-video", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          platform,
+          niche,
+          language,
+          videoName: video.name,
+        }),
+      });
 
       const data = await response.json();
 
       setResults({
-        viralScore: data.viralScore,
         analysis: data.analysis,
-        hookFeedback: data.hookFeedback,
-        hooks: data.betterHooks || [],
-        caption: data.caption,
+        hooks: data.hooks || [],
         hashtags: data.hashtags || [],
-        improvements: data.improvements || [],
       });
     } catch (error) {
       console.error(error);
@@ -226,30 +220,6 @@ export default function Home() {
 
         {results && (
           <div className="space-y-6">
-            {results.viralScore && (
-              <div className="border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold mb-4">
-                  Viral Score
-                </h2>
-
-                <p className="text-5xl font-bold text-pink-500">
-                  {results.viralScore}/100
-                </p>
-              </div>
-            )}
-
-            {results.hookFeedback && (
-              <div className="border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold mb-4">
-                  Hook Feedback
-                </h2>
-
-                <p className="text-gray-300">
-                  {results.hookFeedback}
-                </p>
-              </div>
-            )}
-
             {results.hooks &&
               results.hooks.length > 0 && (
                 <div className="border border-zinc-800 rounded-xl p-6">
@@ -317,23 +287,6 @@ export default function Home() {
                 </p>
               </div>
             )}
-
-            {results.improvements &&
-              results.improvements.length > 0 && (
-                <div className="border border-zinc-800 rounded-xl p-6">
-                  <h2 className="text-2xl font-bold mb-4">
-                    Improvements
-                  </h2>
-
-                  <ul className="list-disc pl-6 space-y-2 text-gray-300">
-                    {results.improvements.map(
-                      (item: string, index: number) => (
-                        <li key={index}>{item}</li>
-                      )
-                    )}
-                  </ul>
-                </div>
-              )}
           </div>
         )}
       </div>
