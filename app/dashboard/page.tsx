@@ -35,29 +35,55 @@ export default function DashboardPage() {
     setLoading(false);
   }
 
+  async function upgradeToPremium() {
+    try {
+      const response = await fetch("/api/stripe/checkout", {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Stripe checkout failed.");
+    }
+  }
+
   return (
     <main className="min-h-screen bg-black text-white p-8">
       <div className="max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-5xl font-bold">
               LinkAI Dashboard 🚀
             </h1>
 
             <p className="text-gray-400 mt-2">
-              Your saved AI content
+              Your saved AI creator content
             </p>
           </div>
 
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              window.location.href = "/login";
-            }}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 px-5 py-3 rounded-xl font-bold"
-          >
-            Logout
-          </button>
+          <div className="flex gap-4">
+            <button
+              onClick={upgradeToPremium}
+              className="bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 px-5 py-3 rounded-xl font-bold"
+            >
+              Upgrade to Premium
+            </button>
+
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.href = "/login";
+              }}
+              className="bg-zinc-800 px-5 py-3 rounded-xl font-bold"
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
         {loading ? (
