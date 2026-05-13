@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-apiVersion: "2026-04-22.basil",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 
 export async function POST() {
   try {
@@ -20,10 +18,11 @@ export async function POST() {
             product_data: {
               name: "LinkAI Premium",
               description:
-                "AI creator tools, viral hooks, video analysis, and premium growth features.",
+                "AI creator tools, viral hooks, video analysis, and premium growth tools.",
             },
 
             unit_amount: 1999,
+
             recurring: {
               interval: "month",
             },
