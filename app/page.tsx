@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { translations } from "@/lib/translations";
+import { supabase } from "@/lib/supabase";
 
 export default function Home() {
   const [platform, setPlatform] = useState("TikTok");
@@ -30,7 +31,6 @@ export default function Home() {
       });
 
       const data = await response.json();
-
       setResults(data);
     } catch (error) {
       console.error(error);
@@ -77,12 +77,43 @@ export default function Home() {
     }
   }
 
-  const platforms = [
-    "TikTok",
-    "YouTube",
-    "Instagram",
-    "Facebook",
-  ];
+  async function saveContent() {
+    if (!results) {
+      alert("Generate or analyze something first.");
+      return;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      alert("Please log in first.");
+      window.location.href = "/login";
+      return;
+    }
+
+    const { error } = await supabase.from("saved_content").insert([
+      {
+        user_id: user.id,
+        platform,
+        niche,
+        language,
+        content_type: video ? "video_analysis" : "viral_content",
+        content: results,
+      },
+    ]);
+
+    if (error) {
+      console.error(error);
+      alert("Save failed.");
+      return;
+    }
+
+    alert("Content saved successfully.");
+  }
+
+  const platforms = ["TikTok", "YouTube", "Instagram", "Facebook"];
 
   const languages = [
     "English",
@@ -119,17 +150,11 @@ export default function Home() {
       dir={language === "Arabic" ? "rtl" : "ltr"}
     >
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-5xl font-bold mb-2">
-          LinkAI 🚀
-        </h1>
+        <h1 className="text-5xl font-bold mb-2">LinkAI 🚀</h1>
 
-        <p className="text-gray-400 mb-8">
-          {t.subtitle}
-        </p>
+        <p className="text-gray-400 mb-8">{t.subtitle}</p>
 
-        <p className="mb-3 text-gray-300">
-          {t.choosePlatform}
-        </p>
+        <p className="mb-3 text-gray-300">{t.choosePlatform}</p>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {platforms.map((item) => (
@@ -148,9 +173,7 @@ export default function Home() {
         </div>
 
         <div className="mb-4">
-          <label className="block mb-2">
-            {t.chooseNiche}
-          </label>
+          <label className="block mb-2">{t.chooseNiche}</label>
 
           <select
             value={niche}
@@ -164,9 +187,7 @@ export default function Home() {
         </div>
 
         <div className="mb-6">
-          <label className="block mb-2">
-            {t.chooseLanguage}
-          </label>
+          <label className="block mb-2">{t.chooseLanguage}</label>
 
           <select
             value={language}
@@ -188,9 +209,7 @@ export default function Home() {
         </button>
 
         <div className="mb-6">
-          <label className="block mb-3 text-lg">
-            {t.uploadVideo}
-          </label>
+          <label className="block mb-3 text-lg">{t.uploadVideo}</label>
 
           <label className="w-full flex items-center justify-center bg-zinc-900 border border-zinc-700 rounded-xl p-6 cursor-pointer hover:border-pink-500 transition">
             <span className="text-gray-300">
@@ -219,68 +238,58 @@ export default function Home() {
         </div>
 
         {results && (
+          <button
+            onClick={saveContent}
+            className="w-full mb-6 p-4 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600"
+          >
+            Save Content
+          </button>
+        )}
+
+        {results && (
           <div className="space-y-6">
-            {results.hooks &&
-              results.hooks.length > 0 && (
-                <div className="border border-zinc-800 rounded-xl p-6">
-                  <h2 className="text-2xl font-bold mb-4">
-                    {t.viralHooks}
-                  </h2>
-
-                  <div className="space-y-3">
-                    {results.hooks.map(
-                      (hook: string, index: number) => (
-                        <div
-                          key={index}
-                          className="bg-zinc-900 p-4 rounded-xl"
-                        >
-                          {hook}
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
-              )}
-
-            {results.caption && (
+            {results.hooks && results.hooks.length > 0 && (
               <div className="border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold mb-4">
-                  Caption
-                </h2>
+                <h2 className="text-2xl font-bold mb-4">{t.viralHooks}</h2>
 
-                <p className="text-gray-300">
-                  {results.caption}
-                </p>
+                <div className="space-y-3">
+                  {results.hooks.map((hook: string, index: number) => (
+                    <div key={index} className="bg-zinc-900 p-4 rounded-xl">
+                      {hook}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
-            {results.hashtags &&
-              results.hashtags.length > 0 && (
-                <div className="border border-zinc-800 rounded-xl p-6">
-                  <h2 className="text-2xl font-bold mb-4">
-                    {t.hashtags}
-                  </h2>
+            {results.caption && (
+              <div className="border border-zinc-800 rounded-xl p-6">
+                <h2 className="text-2xl font-bold mb-4">Caption</h2>
 
-                  <div className="flex flex-wrap gap-3">
-                    {results.hashtags.map(
-                      (tag: string, index: number) => (
-                        <div
-                          key={index}
-                          className="bg-pink-600 px-4 py-2 rounded-full"
-                        >
-                          #{tag.replace("#", "")}
-                        </div>
-                      )
-                    )}
-                  </div>
+                <p className="text-gray-300">{results.caption}</p>
+              </div>
+            )}
+
+            {results.hashtags && results.hashtags.length > 0 && (
+              <div className="border border-zinc-800 rounded-xl p-6">
+                <h2 className="text-2xl font-bold mb-4">{t.hashtags}</h2>
+
+                <div className="flex flex-wrap gap-3">
+                  {results.hashtags.map((tag: string, index: number) => (
+                    <div
+                      key={index}
+                      className="bg-pink-600 px-4 py-2 rounded-full"
+                    >
+                      #{tag.replace("#", "")}
+                    </div>
+                  ))}
                 </div>
-              )}
+              </div>
+            )}
 
             {results.analysis && (
               <div className="border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold mb-4">
-                  {t.analysis}
-                </h2>
+                <h2 className="text-2xl font-bold mb-4">{t.analysis}</h2>
 
                 <p className="text-gray-300 whitespace-pre-line">
                   {results.analysis}
