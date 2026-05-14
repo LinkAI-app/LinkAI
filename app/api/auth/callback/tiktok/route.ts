@@ -9,11 +9,12 @@ const supabase = createClient(
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
+
     const code = searchParams.get("code");
 
     if (!code) {
       return NextResponse.redirect(
-        "https://linkaiapp.ai/dashboard?error=tiktok"
+        "https://linkaiapp.ai/dashboard?error=no_code"
       );
     }
 
@@ -22,11 +23,14 @@ export async function GET(req: Request) {
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type":
+            "application/x-www-form-urlencoded",
         },
+
         body: new URLSearchParams({
           client_key: process.env.TIKTOK_CLIENT_KEY!,
-          client_secret: process.env.TIKTOK_CLIENT_SECRET!,
+          client_secret:
+            process.env.TIKTOK_CLIENT_SECRET!,
           code,
           grant_type: "authorization_code",
           redirect_uri:
@@ -36,17 +40,21 @@ export async function GET(req: Request) {
     );
 
     const tokenData = await tokenResponse.json();
+
+    console.log("TOKEN DATA:", tokenData);
+
     const accessToken = tokenData.access_token;
 
     if (!accessToken) {
       return NextResponse.redirect(
-        "https://linkaiapp.ai/dashboard?error=token"
+        "https://linkaiapp.ai/dashboard?error=no_token"
       );
     }
 
     const profileResponse = await fetch(
-      "https://open.tiktokapis.com/v2/user/info/?fields=open_id,avatar_url,display_name",
+      "https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name,profile_deep_link",
       {
+        method: "GET",
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -54,11 +62,27 @@ export async function GET(req: Request) {
     );
 
     const profileData = await profileResponse.json();
-    const userInfo = profileData.data?.user;
 
-    const openId = userInfo?.open_id || "";
-    const username = userInfo?.display_name || "TikTok User";
-    const avatarUrl = userInfo?.avatar_url || "";
+    console.log("PROFILE DATA:", profileData);
+
+    const userInfo =
+      profileData?.data?.user ||
+      profileData?.data ||
+      {};
+
+    const openId =
+      userInfo.open_id ||
+      userInfo.union_id ||
+      crypto.randomUUID();
+
+    const username =
+      userInfo.display_name ||
+      userInfo.username ||
+      "TikTok Creator";
+
+    const avatarUrl =
+      userInfo.avatar_url ||
+      "";
 
     const { data: existing } = await supabase
       .from("social_connections")
@@ -79,17 +103,20 @@ export async function GET(req: Request) {
         })
         .eq("id", existing.id);
     } else {
-      await supabase.from("social_connections").insert([
-        {
-          platform: "TikTok",
-          open_id: openId,
-          username,
-          avatar_url: avatarUrl,
-          access_token: accessToken,
-          connected: true,
-          updated_at: new Date().toISOString(),
-        },
-      ]);
+      await supabase
+        .from("social_connections")
+        .insert([
+          {
+            platform: "TikTok",
+            open_id: openId,
+            username,
+            avatar_url: avatarUrl,
+            access_token: accessToken,
+            connected: true,
+            updated_at:
+              new Date().toISOString(),
+          },
+        ]);
     }
 
     return NextResponse.redirect(
