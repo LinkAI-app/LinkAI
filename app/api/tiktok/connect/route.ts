@@ -3,9 +3,10 @@ import { NextResponse } from "next/server";
 export async function GET() {
   const clientKey = process.env.TIKTOK_CLIENT_KEY;
 
-  const redirectUri = "https://linkaiapp.ai/api/tiktok/callback";
+  const redirectUri =
+    "https://www.linkaiapp.ai/api/auth/callback/tiktok";
 
-  const scope = ["user.info.basic"].join(",");
+  const scope = "user.info.basic";
 
   const authUrl =
     "https://www.tiktok.com/v2/auth/authorize/" +
