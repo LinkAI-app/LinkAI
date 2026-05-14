@@ -6,13 +6,13 @@ export async function GET() {
   const redirectUri =
     "https://www.linkaiapp.ai/api/auth/callback/tiktok";
 
-const scope = "user.info.basic,video.list";
+  const scope = "user.info.basic";
 
   const authUrl =
     "https://www.tiktok.com/v2/auth/authorize/" +
     `?client_key=${clientKey}` +
     "&response_type=code" +
-    `&scope=${scope}` +
+    `&scope=${encodeURIComponent(scope)}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     "&state=linkai";
 
