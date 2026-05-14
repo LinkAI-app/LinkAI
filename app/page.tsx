@@ -20,8 +20,14 @@ export default function Home() {
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ platform, niche, language }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          platform,
+          niche,
+          language,
+        }),
       });
 
       const data = await response.json();
@@ -45,7 +51,9 @@ export default function Home() {
     try {
       const response = await fetch("/api/analyze-video", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           platform,
           niche,
@@ -146,6 +154,29 @@ export default function Home() {
 
         <p className="text-gray-400 mb-8">{t.subtitle}</p>
 
+        <div className="flex flex-wrap gap-4 mb-10">
+          <a
+            href="/signup"
+            className="bg-gradient-to-r from-purple-600 to-blue-600 px-6 py-3 rounded-xl font-bold"
+          >
+            Sign Up
+          </a>
+
+          <a
+            href="/login"
+            className="bg-white/10 border border-white/10 px-6 py-3 rounded-xl font-bold"
+          >
+            Login
+          </a>
+
+          <a
+            href="/dashboard"
+            className="bg-white/10 border border-white/10 px-6 py-3 rounded-xl font-bold"
+          >
+            Dashboard
+          </a>
+        </div>
+
         <p className="mb-3 text-gray-300">{t.choosePlatform}</p>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -242,11 +273,16 @@ export default function Home() {
           <div className="space-y-6">
             {results.hooks && results.hooks.length > 0 && (
               <div className="border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold mb-4">{t.viralHooks}</h2>
+                <h2 className="text-2xl font-bold mb-4">
+                  {t.viralHooks}
+                </h2>
 
                 <div className="space-y-3">
                   {results.hooks.map((hook: string, index: number) => (
-                    <div key={index} className="bg-zinc-900 p-4 rounded-xl">
+                    <div
+                      key={index}
+                      className="bg-zinc-900 p-4 rounded-xl"
+                    >
                       {hook}
                     </div>
                   ))}
@@ -256,31 +292,43 @@ export default function Home() {
 
             {results.caption && (
               <div className="border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold mb-4">Caption</h2>
-                <p className="text-gray-300">{results.caption}</p>
+                <h2 className="text-2xl font-bold mb-4">
+                  Caption
+                </h2>
+
+                <p className="text-gray-300">
+                  {results.caption}
+                </p>
               </div>
             )}
 
-            {results.hashtags && results.hashtags.length > 0 && (
-              <div className="border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold mb-4">{t.hashtags}</h2>
+            {results.hashtags &&
+              results.hashtags.length > 0 && (
+                <div className="border border-zinc-800 rounded-xl p-6">
+                  <h2 className="text-2xl font-bold mb-4">
+                    {t.hashtags}
+                  </h2>
 
-                <div className="flex flex-wrap gap-3">
-                  {results.hashtags.map((tag: string, index: number) => (
-                    <div
-                      key={index}
-                      className="bg-pink-600 px-4 py-2 rounded-full"
-                    >
-                      #{tag.replace("#", "")}
-                    </div>
-                  ))}
+                  <div className="flex flex-wrap gap-3">
+                    {results.hashtags.map(
+                      (tag: string, index: number) => (
+                        <div
+                          key={index}
+                          className="bg-pink-600 px-4 py-2 rounded-full"
+                        >
+                          #{tag.replace("#", "")}
+                        </div>
+                      )
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {results.analysis && (
               <div className="border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-2xl font-bold mb-4">{t.analysis}</h2>
+                <h2 className="text-2xl font-bold mb-4">
+                  {t.analysis}
+                </h2>
 
                 <p className="text-gray-300 whitespace-pre-line">
                   {results.analysis}
@@ -292,11 +340,17 @@ export default function Home() {
 
         <footer className="mt-20 border-t border-white/10 pt-8 pb-10 text-center">
           <div className="flex items-center justify-center gap-6 text-sm text-gray-400">
-            <a href="/terms" className="hover:text-white transition">
+            <a
+              href="/terms"
+              className="hover:text-white transition"
+            >
               Terms of Service
             </a>
 
-            <a href="/privacy" className="hover:text-white transition">
+            <a
+              href="/privacy"
+              className="hover:text-white transition"
+            >
               Privacy Policy
             </a>
           </div>
