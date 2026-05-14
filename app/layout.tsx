@@ -1,9 +1,13 @@
+import type { Metadata } from "next";
 import "./globals.css";
-import Providers from "./providers";
 
-export const metadata = {
-  title: "Social AI App",
-  description: "Upload once, post everywhere",
+export const metadata: Metadata = {
+  title: "LinkAI",
+  description: "AI tools for creators",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({
@@ -13,11 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        <Providers>
-          {children}
-        </Providers>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
