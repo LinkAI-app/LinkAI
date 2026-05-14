@@ -20,14 +20,8 @@ export default function Home() {
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          platform,
-          niche,
-          language,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform, niche, language }),
       });
 
       const data = await response.json();
@@ -51,9 +45,7 @@ export default function Home() {
     try {
       const response = await fetch("/api/analyze-video", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           platform,
           niche,
@@ -265,7 +257,6 @@ export default function Home() {
             {results.caption && (
               <div className="border border-zinc-800 rounded-xl p-6">
                 <h2 className="text-2xl font-bold mb-4">Caption</h2>
-
                 <p className="text-gray-300">{results.caption}</p>
               </div>
             )}
@@ -298,6 +289,18 @@ export default function Home() {
             )}
           </div>
         )}
+
+        <footer className="mt-20 border-t border-white/10 pt-8 pb-10 text-center">
+          <div className="flex items-center justify-center gap-6 text-sm text-gray-400">
+            <a href="/terms" className="hover:text-white transition">
+              Terms of Service
+            </a>
+
+            <a href="/privacy" className="hover:text-white transition">
+              Privacy Policy
+            </a>
+          </div>
+        </footer>
       </div>
     </main>
   );
