@@ -9,6 +9,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [plan, setPlan] = useState("free");
   const [tiktokConnected, setTiktokConnected] = useState(false);
+  const [tiktokProfile, setTiktokProfile] = useState<any>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -40,6 +41,20 @@ export default function DashboardPage() {
 
     if (profile?.plan) {
       setPlan(profile.plan);
+    }
+
+    const { data: connection } = await supabase
+      .from("social_connections")
+      .select("*")
+      .eq("platform", "TikTok")
+      .eq("connected", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (connection) {
+      setTiktokConnected(true);
+      setTiktokProfile(connection);
     }
 
     const { data, error } = await supabase
@@ -96,16 +111,12 @@ export default function DashboardPage() {
               <div className="inline-flex items-center gap-2 bg-white/10 border border-white/10 px-4 py-2 rounded-full">
                 <div
                   className={`w-3 h-3 rounded-full ${
-                    plan === "premium"
-                      ? "bg-green-400"
-                      : "bg-yellow-400"
+                    plan === "premium" ? "bg-green-400" : "bg-yellow-400"
                   }`}
                 />
 
                 <span className="text-sm font-medium">
-                  {plan === "premium"
-                    ? "Premium Plan"
-                    : "Free Plan"}
+                  {plan === "premium" ? "Premium Plan" : "Free Plan"}
                 </span>
               </div>
 
@@ -139,7 +150,7 @@ export default function DashboardPage() {
                   : "bg-black"
               }`}
             >
-              {tiktokConnected ? "TikTok Connected" : "Connect TikTok"}
+              {tiktokConnected ? "Reconnect TikTok" : "Connect TikTok"}
             </a>
 
             <button
@@ -154,13 +165,43 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {tiktokConnected && (
+          <div className="mb-8 bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
+            <h2 className="text-2xl font-bold mb-4">
+              Connected TikTok Account
+            </h2>
+
+            <div className="flex items-center gap-4">
+              {tiktokProfile?.avatar_url ? (
+                <img
+                  src={tiktokProfile.avatar_url}
+                  alt="TikTok profile"
+                  className="w-16 h-16 rounded-full border border-white/20 object-cover"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center text-2xl font-bold">
+                  T
+                </div>
+              )}
+
+              <div>
+                <p className="text-xl font-bold">
+                  {tiktokProfile?.username || "TikTok Account"}
+                </p>
+
+                <p className="text-gray-400 text-sm">
+                  Connected successfully to LinkAI
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="text-gray-400">Loading...</div>
         ) : content.length === 0 ? (
           <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center backdrop-blur-xl">
-            <h2 className="text-2xl font-bold mb-2">
-              No saved content yet
-            </h2>
+            <h2 className="text-2xl font-bold mb-2">No saved content yet</h2>
 
             <p className="text-gray-400">
               Generate and save content from the homepage.
@@ -189,30 +230,24 @@ export default function DashboardPage() {
 
                 {item.content?.hooks && (
                   <div className="mb-6">
-                    <h3 className="text-xl font-bold mb-3">
-                      Viral Hooks
-                    </h3>
+                    <h3 className="text-xl font-bold mb-3">Viral Hooks</h3>
 
                     <div className="space-y-3">
-                      {item.content.hooks.map(
-                        (hook: string, i: number) => (
-                          <div
-                            key={i}
-                            className="bg-black/30 border border-white/10 p-4 rounded-xl"
-                          >
-                            {hook}
-                          </div>
-                        )
-                      )}
+                      {item.content.hooks.map((hook: string, i: number) => (
+                        <div
+                          key={i}
+                          className="bg-black/30 border border-white/10 p-4 rounded-xl"
+                        >
+                          {hook}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
 
                 {item.content?.caption && (
                   <div className="mb-6">
-                    <h3 className="text-xl font-bold mb-3">
-                      Caption
-                    </h3>
+                    <h3 className="text-xl font-bold mb-3">Caption</h3>
 
                     <div className="bg-black/30 border border-white/10 p-4 rounded-xl">
                       {item.content.caption}
@@ -222,30 +257,24 @@ export default function DashboardPage() {
 
                 {item.content?.hashtags && (
                   <div className="mb-6">
-                    <h3 className="text-xl font-bold mb-3">
-                      Hashtags
-                    </h3>
+                    <h3 className="text-xl font-bold mb-3">Hashtags</h3>
 
                     <div className="flex flex-wrap gap-3">
-                      {item.content.hashtags.map(
-                        (tag: string, i: number) => (
-                          <div
-                            key={i}
-                            className="bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-2 rounded-full"
-                          >
-                            #{tag.replace("#", "")}
-                          </div>
-                        )
-                      )}
+                      {item.content.hashtags.map((tag: string, i: number) => (
+                        <div
+                          key={i}
+                          className="bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-2 rounded-full"
+                        >
+                          #{tag.replace("#", "")}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
 
                 {item.content?.analysis && (
                   <div>
-                    <h3 className="text-xl font-bold mb-3">
-                      Video Analysis
-                    </h3>
+                    <h3 className="text-xl font-bold mb-3">Video Analysis</h3>
 
                     <div className="bg-black/30 border border-white/10 p-4 rounded-xl whitespace-pre-line">
                       {item.content.analysis}
@@ -254,8 +283,7 @@ export default function DashboardPage() {
                 )}
 
                 <div className="text-gray-500 text-sm mt-6">
-                  Saved on{" "}
-                  {new Date(item.created_at).toLocaleString()}
+                  Saved on {new Date(item.created_at).toLocaleString()}
                 </div>
               </div>
             ))}
