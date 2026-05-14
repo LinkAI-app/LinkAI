@@ -8,8 +8,15 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [plan, setPlan] = useState("free");
+  const [tiktokConnected, setTiktokConnected] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get("tiktok") === "connected") {
+      setTiktokConnected(true);
+    }
+
     loadDashboard();
   }, []);
 
@@ -53,11 +60,9 @@ export default function DashboardPage() {
     try {
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
-
         headers: {
           "Content-Type": "application/json",
         },
-
         body: JSON.stringify({
           userId: user.id,
         }),
@@ -87,20 +92,32 @@ export default function DashboardPage() {
               Your saved AI creator content
             </p>
 
-            <div className="mt-4 inline-flex items-center gap-2 bg-white/10 border border-white/10 px-4 py-2 rounded-full">
-              <div
-                className={`w-3 h-3 rounded-full ${
-                  plan === "premium"
-                    ? "bg-green-400"
-                    : "bg-yellow-400"
-                }`}
-              />
+            <div className="mt-4 flex flex-wrap gap-3">
+              <div className="inline-flex items-center gap-2 bg-white/10 border border-white/10 px-4 py-2 rounded-full">
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    plan === "premium"
+                      ? "bg-green-400"
+                      : "bg-yellow-400"
+                  }`}
+                />
 
-              <span className="text-sm font-medium">
-                {plan === "premium"
-                  ? "Premium Plan"
-                  : "Free Plan"}
-              </span>
+                <span className="text-sm font-medium">
+                  {plan === "premium"
+                    ? "Premium Plan"
+                    : "Free Plan"}
+                </span>
+              </div>
+
+              {tiktokConnected && (
+                <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-400/30 px-4 py-2 rounded-full">
+                  <div className="w-3 h-3 rounded-full bg-green-400" />
+
+                  <span className="text-sm font-medium text-green-300">
+                    TikTok Connected
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -116,9 +133,13 @@ export default function DashboardPage() {
 
             <a
               href="/api/tiktok/connect"
-              className="bg-black border border-white/10 px-5 py-3 rounded-xl font-bold"
+              className={`border border-white/10 px-5 py-3 rounded-xl font-bold ${
+                tiktokConnected
+                  ? "bg-green-500/20 text-green-300"
+                  : "bg-black"
+              }`}
             >
-              Connect TikTok
+              {tiktokConnected ? "TikTok Connected" : "Connect TikTok"}
             </a>
 
             <button
