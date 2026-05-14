@@ -104,7 +104,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             {plan !== "premium" && (
               <button
                 onClick={upgradeToPremium}
@@ -113,6 +113,13 @@ export default function DashboardPage() {
                 Upgrade to Premium
               </button>
             )}
+
+            <a
+              href="/api/tiktok/connect"
+              className="bg-black border border-white/10 px-5 py-3 rounded-xl font-bold"
+            >
+              Connect TikTok
+            </a>
 
             <button
               onClick={async () => {
