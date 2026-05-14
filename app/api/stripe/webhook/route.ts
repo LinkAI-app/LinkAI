@@ -23,6 +23,8 @@ export async function POST(req: Request) {
       process.env.STRIPE_WEBHOOK_SECRET as string
     );
   } catch (error: any) {
+    console.error("STRIPE WEBHOOK SIGNATURE ERROR:", error.message);
+
     return NextResponse.json(
       { error: error.message },
       { status: 400 }
@@ -31,13 +33,17 @@ export async function POST(req: Request) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    const email = session.customer_details?.email;
+    const userId = session.metadata?.userId;
 
-    if (email) {
-      await supabase
+    if (userId) {
+      const { error } = await supabase
         .from("profiles")
         .update({ plan: "premium" })
-        .eq("email", email);
+        .eq("id", userId);
+
+      if (error) {
+        console.error("SUPABASE PREMIUM UPDATE ERROR:", error);
+      }
     }
   }
 
