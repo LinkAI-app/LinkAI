@@ -6,12 +6,14 @@ import { supabase } from "@/lib/supabase";
 export default function DashboardPage() {
   const [content, setContent] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [plan, setPlan] = useState("free");
 
   useEffect(() => {
-    loadContent();
+    loadDashboard();
   }, []);
 
-  async function loadContent() {
+  async function loadDashboard() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -19,6 +21,18 @@ export default function DashboardPage() {
     if (!user) {
       window.location.href = "/login";
       return;
+    }
+
+    setUser(user);
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("plan")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.plan) {
+      setPlan(profile.plan);
     }
 
     const { data, error } = await supabase
@@ -39,6 +53,14 @@ export default function DashboardPage() {
     try {
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          userId: user.id,
+        }),
       });
 
       const data = await response.json();
@@ -53,33 +75,51 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white p-8">
+    <main className="min-h-screen bg-[#050816] text-white p-8">
       <div className="max-w-5xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-5xl font-bold">
-              LinkAI Dashboard 🚀
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-300 bg-clip-text text-transparent">
+              LinkAI Dashboard
             </h1>
 
             <p className="text-gray-400 mt-2">
               Your saved AI creator content
             </p>
+
+            <div className="mt-4 inline-flex items-center gap-2 bg-white/10 border border-white/10 px-4 py-2 rounded-full">
+              <div
+                className={`w-3 h-3 rounded-full ${
+                  plan === "premium"
+                    ? "bg-green-400"
+                    : "bg-yellow-400"
+                }`}
+              />
+
+              <span className="text-sm font-medium">
+                {plan === "premium"
+                  ? "Premium Plan"
+                  : "Free Plan"}
+              </span>
+            </div>
           </div>
 
           <div className="flex gap-4">
-            <button
-              onClick={upgradeToPremium}
-              className="bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 px-5 py-3 rounded-xl font-bold"
-            >
-              Upgrade to Premium
-            </button>
+            {plan !== "premium" && (
+              <button
+                onClick={upgradeToPremium}
+                className="bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 px-5 py-3 rounded-xl font-bold shadow-lg shadow-purple-500/20"
+              >
+                Upgrade to Premium
+              </button>
+            )}
 
             <button
               onClick={async () => {
                 await supabase.auth.signOut();
                 window.location.href = "/login";
               }}
-              className="bg-zinc-800 px-5 py-3 rounded-xl font-bold"
+              className="bg-white/10 border border-white/10 px-5 py-3 rounded-xl font-bold"
             >
               Logout
             </button>
@@ -89,7 +129,7 @@ export default function DashboardPage() {
         {loading ? (
           <div className="text-gray-400">Loading...</div>
         ) : content.length === 0 ? (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center backdrop-blur-xl">
             <h2 className="text-2xl font-bold mb-2">
               No saved content yet
             </h2>
@@ -103,7 +143,7 @@ export default function DashboardPage() {
             {content.map((item, index) => (
               <div
                 key={index}
-                className="border border-zinc-800 rounded-2xl p-6 bg-zinc-950"
+                className="border border-white/10 rounded-2xl p-6 bg-white/5 backdrop-blur-xl"
               >
                 <div className="flex flex-wrap gap-3 mb-4">
                   <div className="bg-pink-600 px-3 py-1 rounded-full text-sm">
@@ -130,7 +170,7 @@ export default function DashboardPage() {
                         (hook: string, i: number) => (
                           <div
                             key={i}
-                            className="bg-zinc-900 p-4 rounded-xl"
+                            className="bg-black/30 border border-white/10 p-4 rounded-xl"
                           >
                             {hook}
                           </div>
@@ -146,7 +186,7 @@ export default function DashboardPage() {
                       Caption
                     </h3>
 
-                    <div className="bg-zinc-900 p-4 rounded-xl">
+                    <div className="bg-black/30 border border-white/10 p-4 rounded-xl">
                       {item.content.caption}
                     </div>
                   </div>
@@ -163,7 +203,7 @@ export default function DashboardPage() {
                         (tag: string, i: number) => (
                           <div
                             key={i}
-                            className="bg-pink-600 px-4 py-2 rounded-full"
+                            className="bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-2 rounded-full"
                           >
                             #{tag.replace("#", "")}
                           </div>
@@ -179,7 +219,7 @@ export default function DashboardPage() {
                       Video Analysis
                     </h3>
 
-                    <div className="bg-zinc-900 p-4 rounded-xl whitespace-pre-line">
+                    <div className="bg-black/30 border border-white/10 p-4 rounded-xl whitespace-pre-line">
                       {item.content.analysis}
                     </div>
                   </div>
