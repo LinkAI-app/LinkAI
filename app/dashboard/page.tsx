@@ -9,14 +9,14 @@ export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [plan, setPlan] = useState("free");
   const [tiktokConnected, setTiktokConnected] = useState(false);
+  const [metaConnected, setMetaConnected] = useState(false);
   const [tiktokProfile, setTiktokProfile] = useState<any>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
 
-    if (params.get("tiktok") === "connected") {
-      setTiktokConnected(true);
-    }
+    if (params.get("tiktok") === "connected") setTiktokConnected(true);
+    if (params.get("meta") === "connected") setMetaConnected(true);
 
     loadDashboard();
   }, []);
@@ -39,9 +39,7 @@ export default function DashboardPage() {
       .eq("id", user.id)
       .single();
 
-    if (profile?.plan) {
-      setPlan(profile.plan);
-    }
+    if (profile?.plan) setPlan(profile.plan);
 
     const { data: connection } = await supabase
       .from("social_connections")
@@ -57,41 +55,24 @@ export default function DashboardPage() {
       setTiktokProfile(connection);
     }
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("saved_content")
       .select("*")
       .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error(error);
-      return;
-    }
 
     setContent(data || []);
     setLoading(false);
   }
 
   async function upgradeToPremium() {
-    try {
-      const response = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: user.id,
-        }),
-      });
+    const response = await fetch("/api/stripe/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.id }),
+    });
 
-      const data = await response.json();
-
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Stripe checkout failed.");
-    }
+    const data = await response.json();
+    if (data.url) window.location.href = data.url;
   }
 
   return (
@@ -114,7 +95,6 @@ export default function DashboardPage() {
                     plan === "premium" ? "bg-green-400" : "bg-yellow-400"
                   }`}
                 />
-
                 <span className="text-sm font-medium">
                   {plan === "premium" ? "Premium Plan" : "Free Plan"}
                 </span>
@@ -123,9 +103,17 @@ export default function DashboardPage() {
               {tiktokConnected && (
                 <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-400/30 px-4 py-2 rounded-full">
                   <div className="w-3 h-3 rounded-full bg-green-400" />
-
                   <span className="text-sm font-medium text-green-300">
                     TikTok Connected
+                  </span>
+                </div>
+              )}
+
+              {metaConnected && (
+                <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-400/30 px-4 py-2 rounded-full">
+                  <div className="w-3 h-3 rounded-full bg-green-400" />
+                  <span className="text-sm font-medium text-green-300">
+                    Instagram/Facebook Connected
                   </span>
                 </div>
               )}
@@ -136,7 +124,7 @@ export default function DashboardPage() {
             {plan !== "premium" && (
               <button
                 onClick={upgradeToPremium}
-                className="bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 px-5 py-3 rounded-xl font-bold shadow-lg shadow-purple-500/20"
+                className="bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 px-5 py-3 rounded-xl font-bold"
               >
                 Upgrade to Premium
               </button>
@@ -144,13 +132,16 @@ export default function DashboardPage() {
 
             <a
               href="/api/tiktok/connect"
-              className={`border border-white/10 px-5 py-3 rounded-xl font-bold ${
-                tiktokConnected
-                  ? "bg-green-500/20 text-green-300"
-                  : "bg-black"
-              }`}
+              className="bg-green-500/20 text-green-300 border border-white/10 px-5 py-3 rounded-xl font-bold"
             >
               {tiktokConnected ? "Reconnect TikTok" : "Connect TikTok"}
+            </a>
+
+            <a
+              href="/api/meta/connect"
+              className="bg-blue-500/20 text-blue-300 border border-white/10 px-5 py-3 rounded-xl font-bold"
+            >
+              {metaConnected ? "Reconnect Instagram" : "Connect Instagram"}
             </a>
 
             <button
@@ -166,7 +157,7 @@ export default function DashboardPage() {
         </div>
 
         {tiktokConnected && (
-          <div className="mb-8 bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
+          <div className="mb-8 bg-white/5 border border-white/10 rounded-2xl p-6">
             <h2 className="text-2xl font-bold mb-4">
               Connected TikTok Account
             </h2>
@@ -188,7 +179,6 @@ export default function DashboardPage() {
                 <p className="text-xl font-bold">
                   {tiktokProfile?.username || "TikTok Account"}
                 </p>
-
                 <p className="text-gray-400 text-sm">
                   Connected successfully to LinkAI
                 </p>
@@ -197,12 +187,22 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {metaConnected && (
+          <div className="mb-8 bg-green-500/10 border border-green-400/30 rounded-2xl p-6">
+            <h2 className="text-2xl font-bold text-green-300">
+              Instagram/Facebook Connected ✅
+            </h2>
+            <p className="text-gray-300 mt-2">
+              Meta connection completed successfully.
+            </p>
+          </div>
+        )}
+
         {loading ? (
           <div className="text-gray-400">Loading...</div>
         ) : content.length === 0 ? (
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center backdrop-blur-xl">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center">
             <h2 className="text-2xl font-bold mb-2">No saved content yet</h2>
-
             <p className="text-gray-400">
               Generate and save content from the homepage.
             </p>
@@ -212,17 +212,15 @@ export default function DashboardPage() {
             {content.map((item, index) => (
               <div
                 key={index}
-                className="border border-white/10 rounded-2xl p-6 bg-white/5 backdrop-blur-xl"
+                className="border border-white/10 rounded-2xl p-6 bg-white/5"
               >
                 <div className="flex flex-wrap gap-3 mb-4">
                   <div className="bg-pink-600 px-3 py-1 rounded-full text-sm">
                     {item.platform}
                   </div>
-
                   <div className="bg-blue-600 px-3 py-1 rounded-full text-sm">
                     {item.niche}
                   </div>
-
                   <div className="bg-purple-600 px-3 py-1 rounded-full text-sm">
                     {item.language}
                   </div>
@@ -231,7 +229,6 @@ export default function DashboardPage() {
                 {item.content?.hooks && (
                   <div className="mb-6">
                     <h3 className="text-xl font-bold mb-3">Viral Hooks</h3>
-
                     <div className="space-y-3">
                       {item.content.hooks.map((hook: string, i: number) => (
                         <div
@@ -248,7 +245,6 @@ export default function DashboardPage() {
                 {item.content?.caption && (
                   <div className="mb-6">
                     <h3 className="text-xl font-bold mb-3">Caption</h3>
-
                     <div className="bg-black/30 border border-white/10 p-4 rounded-xl">
                       {item.content.caption}
                     </div>
@@ -258,7 +254,6 @@ export default function DashboardPage() {
                 {item.content?.hashtags && (
                   <div className="mb-6">
                     <h3 className="text-xl font-bold mb-3">Hashtags</h3>
-
                     <div className="flex flex-wrap gap-3">
                       {item.content.hashtags.map((tag: string, i: number) => (
                         <div
@@ -275,7 +270,6 @@ export default function DashboardPage() {
                 {item.content?.analysis && (
                   <div>
                     <h3 className="text-xl font-bold mb-3">Video Analysis</h3>
-
                     <div className="bg-black/30 border border-white/10 p-4 rounded-xl whitespace-pre-line">
                       {item.content.analysis}
                     </div>
