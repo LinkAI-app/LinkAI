@@ -34,10 +34,10 @@ export default function DashboardPage() {
 
     if (profile?.plan) setPlan(profile.plan);
 
- const connectionsRes = await fetch("/api/social-connections");
-const connectionsData = await connectionsRes.json();
+    const connectionsRes = await fetch("/api/social-connections");
+    const connectionsData = await connectionsRes.json();
 
-setConnections(connectionsData.connections || []);
+    setConnections(connectionsData.connections || []);
 
     const { data } = await supabase
       .from("saved_content")
@@ -96,17 +96,11 @@ setConnections(connectionsData.connections || []);
                 </span>
               </div>
 
-              {hasTikTok && (
-                <Badge label="TikTok Connected" />
-              )}
+              {hasTikTok && <Badge label="TikTok Connected" />}
 
-              {hasInstagram && (
-                <Badge label="Instagram/Facebook Connected" />
-              )}
+              {hasInstagram && <Badge label="Instagram/Facebook Connected" />}
 
-              {hasYouTube && (
-                <Badge label="YouTube Connected" />
-              )}
+              {hasYouTube && <Badge label="YouTube Connected" />}
             </div>
           </div>
 
@@ -132,6 +126,13 @@ setConnections(connectionsData.connections || []);
               className="bg-blue-500/20 text-blue-300 border border-white/10 px-5 py-3 rounded-xl font-bold"
             >
               {hasInstagram ? "Reconnect Instagram" : "Connect Instagram"}
+            </a>
+
+            <a
+              href="/api/youtube/connect"
+              className="bg-red-500/20 text-red-300 border border-white/10 px-5 py-3 rounded-xl font-bold"
+            >
+              {hasYouTube ? "Reconnect YouTube" : "Connect YouTube"}
             </a>
 
             <button
