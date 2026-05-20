@@ -8,9 +8,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [plan, setPlan] = useState("free");
+
   const [tiktokConnected, setTiktokConnected] = useState(false);
   const [metaConnected, setMetaConnected] = useState(false);
+
   const [tiktokProfile, setTiktokProfile] = useState<any>(null);
+  const [instagramProfile, setInstagramProfile] = useState<any>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -41,18 +44,32 @@ export default function DashboardPage() {
 
     if (profile?.plan) setPlan(profile.plan);
 
-    const { data: connection } = await supabase
+    const { data: tiktok } = await supabase
       .from("social_connections")
       .select("*")
       .eq("platform", "TikTok")
       .eq("connected", true)
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    if (connection) {
+    if (tiktok) {
       setTiktokConnected(true);
-      setTiktokProfile(connection);
+      setTiktokProfile(tiktok);
+    }
+
+    const { data: instagram } = await supabase
+      .from("social_connections")
+      .select("*")
+      .eq("platform", "instagram")
+      .eq("connected", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (instagram) {
+      setMetaConnected(true);
+      setInstagramProfile(instagram);
     }
 
     const { data } = await supabase
@@ -156,6 +173,37 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {instagramProfile && (
+          <div className="mb-8 bg-green-500/10 border border-green-400/30 rounded-2xl p-6">
+            <h2 className="text-2xl font-bold text-green-300 mb-4">
+              Connected Instagram Account ✅
+            </h2>
+
+            <div className="flex items-center gap-4">
+              {instagramProfile.avatar_url ? (
+                <img
+                  src={instagramProfile.avatar_url}
+                  alt="Instagram profile"
+                  className="w-16 h-16 rounded-full border border-white/20 object-cover"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-pink-600 to-purple-600 flex items-center justify-center text-2xl font-bold">
+                  IG
+                </div>
+              )}
+
+              <div>
+                <p className="text-xl font-bold">
+                  @{instagramProfile.username || "Instagram Account"}
+                </p>
+                <p className="text-gray-300 text-sm">
+                  Connected successfully to LinkAI
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {tiktokConnected && (
           <div className="mb-8 bg-white/5 border border-white/10 rounded-2xl p-6">
             <h2 className="text-2xl font-bold mb-4">
@@ -184,17 +232,6 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-          </div>
-        )}
-
-        {metaConnected && (
-          <div className="mb-8 bg-green-500/10 border border-green-400/30 rounded-2xl p-6">
-            <h2 className="text-2xl font-bold text-green-300">
-              Instagram/Facebook Connected ✅
-            </h2>
-            <p className="text-gray-300 mt-2">
-              Meta connection completed successfully.
-            </p>
           </div>
         )}
 
