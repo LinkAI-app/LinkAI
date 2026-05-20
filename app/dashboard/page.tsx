@@ -34,13 +34,10 @@ export default function DashboardPage() {
 
     if (profile?.plan) setPlan(profile.plan);
 
-    const { data: socialConnections } = await supabase
-      .from("social_connections")
-      .select("*")
-      .eq("connected", true)
-      .order("created_at", { ascending: false });
+ const connectionsRes = await fetch("/api/social-connections");
+const connectionsData = await connectionsRes.json();
 
-    setConnections(socialConnections || []);
+setConnections(connectionsData.connections || []);
 
     const { data } = await supabase
       .from("saved_content")
