@@ -8,19 +8,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [plan, setPlan] = useState("free");
-
-  const [tiktokConnected, setTiktokConnected] = useState(false);
-  const [metaConnected, setMetaConnected] = useState(false);
-
-  const [tiktokProfile, setTiktokProfile] = useState<any>(null);
-  const [instagramProfile, setInstagramProfile] = useState<any>(null);
+  const [connections, setConnections] = useState<any[]>([]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-
-    if (params.get("tiktok") === "connected") setTiktokConnected(true);
-    if (params.get("meta") === "connected") setMetaConnected(true);
-
     loadDashboard();
   }, []);
 
@@ -44,33 +34,13 @@ export default function DashboardPage() {
 
     if (profile?.plan) setPlan(profile.plan);
 
-    const { data: tiktok } = await supabase
+    const { data: socialConnections } = await supabase
       .from("social_connections")
       .select("*")
-      .eq("platform", "TikTok")
       .eq("connected", true)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: false });
 
-    if (tiktok) {
-      setTiktokConnected(true);
-      setTiktokProfile(tiktok);
-    }
-
-    const { data: instagram } = await supabase
-      .from("social_connections")
-      .select("*")
-      .eq("platform", "instagram")
-      .eq("connected", true)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (instagram) {
-      setMetaConnected(true);
-      setInstagramProfile(instagram);
-    }
+    setConnections(socialConnections || []);
 
     const { data } = await supabase
       .from("saved_content")
@@ -91,6 +61,18 @@ export default function DashboardPage() {
     const data = await response.json();
     if (data.url) window.location.href = data.url;
   }
+
+  const hasInstagram = connections.some(
+    (c) => c.platform?.toLowerCase() === "instagram"
+  );
+
+  const hasTikTok = connections.some(
+    (c) => c.platform?.toLowerCase() === "tiktok"
+  );
+
+  const hasYouTube = connections.some(
+    (c) => c.platform?.toLowerCase() === "youtube"
+  );
 
   return (
     <main className="min-h-screen bg-[#050816] text-white p-8">
@@ -117,22 +99,16 @@ export default function DashboardPage() {
                 </span>
               </div>
 
-              {tiktokConnected && (
-                <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-400/30 px-4 py-2 rounded-full">
-                  <div className="w-3 h-3 rounded-full bg-green-400" />
-                  <span className="text-sm font-medium text-green-300">
-                    TikTok Connected
-                  </span>
-                </div>
+              {hasTikTok && (
+                <Badge label="TikTok Connected" />
               )}
 
-              {metaConnected && (
-                <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-400/30 px-4 py-2 rounded-full">
-                  <div className="w-3 h-3 rounded-full bg-green-400" />
-                  <span className="text-sm font-medium text-green-300">
-                    Instagram/Facebook Connected
-                  </span>
-                </div>
+              {hasInstagram && (
+                <Badge label="Instagram/Facebook Connected" />
+              )}
+
+              {hasYouTube && (
+                <Badge label="YouTube Connected" />
               )}
             </div>
           </div>
@@ -151,14 +127,14 @@ export default function DashboardPage() {
               href="/api/tiktok/connect"
               className="bg-green-500/20 text-green-300 border border-white/10 px-5 py-3 rounded-xl font-bold"
             >
-              {tiktokConnected ? "Reconnect TikTok" : "Connect TikTok"}
+              {hasTikTok ? "Reconnect TikTok" : "Connect TikTok"}
             </a>
 
             <a
               href="/api/meta/connect"
               className="bg-blue-500/20 text-blue-300 border border-white/10 px-5 py-3 rounded-xl font-bold"
             >
-              {metaConnected ? "Reconnect Instagram" : "Connect Instagram"}
+              {hasInstagram ? "Reconnect Instagram" : "Connect Instagram"}
             </a>
 
             <button
@@ -173,67 +149,52 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {instagramProfile && (
-          <div className="mb-8 bg-green-500/10 border border-green-400/30 rounded-2xl p-6">
-            <h2 className="text-2xl font-bold text-green-300 mb-4">
-              Connected Instagram Account ✅
-            </h2>
+        <section className="mb-8 bg-white/5 border border-white/10 rounded-2xl p-6">
+          <h2 className="text-2xl font-bold mb-4">Connected Accounts</h2>
 
-            <div className="flex items-center gap-4">
-              {instagramProfile.avatar_url ? (
-                <img
-                  src={instagramProfile.avatar_url}
-                  alt="Instagram profile"
-                  className="w-16 h-16 rounded-full border border-white/20 object-cover"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-pink-600 to-purple-600 flex items-center justify-center text-2xl font-bold">
-                  IG
+          {connections.length === 0 ? (
+            <p className="text-gray-400">
+              No social accounts connected yet.
+            </p>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              {connections.map((account) => (
+                <div
+                  key={account.id}
+                  className="bg-black/30 border border-white/10 rounded-xl p-4 flex items-center gap-4"
+                >
+                  {account.avatar_url ? (
+                    <img
+                      src={account.avatar_url}
+                      alt={account.platform}
+                      className="w-14 h-14 rounded-full object-cover border border-white/20"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center font-bold">
+                      {account.platform?.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-lg font-bold capitalize">
+                      {account.platform}
+                    </p>
+                    <p className="text-gray-300">
+                      {account.username
+                        ? account.platform?.toLowerCase() === "instagram"
+                          ? `@${account.username}`
+                          : account.username
+                        : "Connected account"}
+                    </p>
+                    <p className="text-green-300 text-sm">
+                      Connected successfully
+                    </p>
+                  </div>
                 </div>
-              )}
-
-              <div>
-                <p className="text-xl font-bold">
-                  @{instagramProfile.username || "Instagram Account"}
-                </p>
-                <p className="text-gray-300 text-sm">
-                  Connected successfully to LinkAI
-                </p>
-              </div>
+              ))}
             </div>
-          </div>
-        )}
-
-        {tiktokConnected && (
-          <div className="mb-8 bg-white/5 border border-white/10 rounded-2xl p-6">
-            <h2 className="text-2xl font-bold mb-4">
-              Connected TikTok Account
-            </h2>
-
-            <div className="flex items-center gap-4">
-              {tiktokProfile?.avatar_url ? (
-                <img
-                  src={tiktokProfile.avatar_url}
-                  alt="TikTok profile"
-                  className="w-16 h-16 rounded-full border border-white/20 object-cover"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center text-2xl font-bold">
-                  T
-                </div>
-              )}
-
-              <div>
-                <p className="text-xl font-bold">
-                  {tiktokProfile?.username || "TikTok Account"}
-                </p>
-                <p className="text-gray-400 text-sm">
-                  Connected successfully to LinkAI
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+          )}
+        </section>
 
         {loading ? (
           <div className="text-gray-400">Loading...</div>
@@ -322,5 +283,14 @@ export default function DashboardPage() {
         )}
       </div>
     </main>
+  );
+}
+
+function Badge({ label }: { label: string }) {
+  return (
+    <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-400/30 px-4 py-2 rounded-full">
+      <div className="w-3 h-3 rounded-full bg-green-400" />
+      <span className="text-sm font-medium text-green-300">{label}</span>
+    </div>
   );
 }
