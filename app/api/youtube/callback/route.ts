@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -6,56 +6,101 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function GET(req: NextRequest) {
-  const code = req.nextUrl.searchParams.get("code");
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const code = searchParams.get("code");
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.linkaiapp.ai";
 
   if (!code) {
-    return NextResponse.redirect(`${appUrl}/dashboard?youtube=error`);
+    return NextResponse.redirect(`${appUrl}/dashboard?meta=error`);
   }
 
-  const redirectUri = `${appUrl}/api/youtube/callback`;
+  try {
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/v25.0/oauth/access_token?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(
+        `${appUrl}/api/meta/callback`
+      )}&client_secret=${process.env.META_APP_SECRET}&code=${code}`
+    );
 
-  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      code,
-      client_id: process.env.YOUTUBE_CLIENT_ID!,
-      client_secret: process.env.YOUTUBE_CLIENT_SECRET!,
-      redirect_uri: redirectUri,
-      grant_type: "authorization_code",
-    }),
-  });
+    const tokenData = await tokenRes.json();
+    const userAccessToken = tokenData.access_token;
 
-  const tokenData = await tokenRes.json();
-  const accessToken = tokenData.access_token;
+    const pagesRes = await fetch(
+      `https://graph.facebook.com/v25.0/me/accounts?access_token=${userAccessToken}`
+    );
 
-  const channelRes = await fetch(
-    "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true",
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+    const pagesData = await pagesRes.json();
+    const page = pagesData.data?.[0];
+
+    if (!page) {
+      return NextResponse.redirect(`${appUrl}/dashboard?meta=nopage`);
     }
-  );
 
-  const channelData = await channelRes.json();
-  const channel = channelData.items?.[0];
+    await upsertConnection({
+      platform: "facebook",
+      username: page.name || "Facebook Page",
+      avatar_url: "",
+      access_token: page.access_token,
+      page_id: page.id,
+      instagram_account_id: null,
+    });
 
-  if (!channel) {
-    return NextResponse.redirect(`${appUrl}/dashboard?youtube=error`);
+    const igRes = await fetch(
+      `https://graph.facebook.com/v25.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
+    );
+
+    const igData = await igRes.json();
+    const instagramId = igData.instagram_business_account?.id;
+
+    if (instagramId) {
+      let username = "instagram_user";
+      let avatar = "";
+
+      const profileRes = await fetch(
+        `https://graph.facebook.com/v25.0/${instagramId}?fields=username,profile_picture_url&access_token=${page.access_token}`
+      );
+
+      const profileData = await profileRes.json();
+
+      username = profileData.username || username;
+      avatar = profileData.profile_picture_url || "";
+
+      await upsertConnection({
+        platform: "instagram",
+        username,
+        avatar_url: avatar,
+        access_token: page.access_token,
+        page_id: page.id,
+        instagram_account_id: instagramId,
+      });
+    }
+
+    return NextResponse.redirect(`${appUrl}/dashboard?meta=connected`);
+  } catch (err) {
+    console.error(err);
+    return NextResponse.redirect(`${appUrl}/dashboard?meta=error`);
   }
+}
 
-  const username = channel.snippet.title;
-  const avatarUrl = channel.snippet.thumbnails?.default?.url || "";
-
+async function upsertConnection({
+  platform,
+  username,
+  avatar_url,
+  access_token,
+  page_id,
+  instagram_account_id,
+}: {
+  platform: string;
+  username: string;
+  avatar_url: string;
+  access_token: string;
+  page_id: string | null;
+  instagram_account_id: string | null;
+}) {
   const { data: existing } = await supabase
     .from("social_connections")
     .select("id")
-    .eq("platform", "YouTube")
+    .eq("platform", platform)
     .eq("username", username)
     .maybeSingle();
 
@@ -63,22 +108,24 @@ export async function GET(req: NextRequest) {
     await supabase
       .from("social_connections")
       .update({
-        avatar_url: avatarUrl,
-        access_token: accessToken,
+        avatar_url,
+        access_token,
         connected: true,
+        page_id,
+        instagram_account_id,
         updated_at: new Date().toISOString(),
       })
       .eq("id", existing.id);
   } else {
     await supabase.from("social_connections").insert({
-      platform: "YouTube",
+      platform,
       username,
-      avatar_url: avatarUrl,
-      access_token: accessToken,
+      avatar_url,
+      access_token,
       connected: true,
+      page_id,
+      instagram_account_id,
       updated_at: new Date().toISOString(),
     });
   }
-
-  return NextResponse.redirect(`${appUrl}/dashboard?youtube=connected`);
 }
