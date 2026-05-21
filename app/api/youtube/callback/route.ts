@@ -1,5 +1,3 @@
-// app/api/youtube/callback/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -10,14 +8,13 @@ const supabase = createClient(
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
 
   if (!code) {
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?youtube=error`
-    );
+    return NextResponse.redirect(`${appUrl}/dashboard?youtube=error`);
   }
 
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/youtube/callback`;
+  const redirectUri = `${appUrl}/api/youtube/callback`;
 
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -34,7 +31,6 @@ export async function GET(req: NextRequest) {
   });
 
   const tokenData = await tokenRes.json();
-
   const accessToken = tokenData.access_token;
 
   const channelRes = await fetch(
@@ -47,24 +43,42 @@ export async function GET(req: NextRequest) {
   );
 
   const channelData = await channelRes.json();
-
   const channel = channelData.items?.[0];
 
   if (!channel) {
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?youtube=error`
-    );
+    return NextResponse.redirect(`${appUrl}/dashboard?youtube=error`);
   }
 
-  await supabase.from("social_connections").insert({
-    platform: "YouTube",
-    username: channel.snippet.title,
-    avatar_url: channel.snippet.thumbnails.default.url,
-    access_token: accessToken,
-    connected: true,
-  });
+  const username = channel.snippet.title;
+  const avatarUrl = channel.snippet.thumbnails?.default?.url || "";
 
-  return NextResponse.redirect(
-    `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?youtube=connected`
-  );
+  const { data: existing } = await supabase
+    .from("social_connections")
+    .select("id")
+    .eq("platform", "YouTube")
+    .eq("username", username)
+    .maybeSingle();
+
+  if (existing?.id) {
+    await supabase
+      .from("social_connections")
+      .update({
+        avatar_url: avatarUrl,
+        access_token: accessToken,
+        connected: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+  } else {
+    await supabase.from("social_connections").insert({
+      platform: "YouTube",
+      username,
+      avatar_url: avatarUrl,
+      access_token: accessToken,
+      connected: true,
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  return NextResponse.redirect(`${appUrl}/dashboard?youtube=connected`);
 }
