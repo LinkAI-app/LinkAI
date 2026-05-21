@@ -60,7 +60,7 @@ export default function SchedulePostForm() {
     return data.publicUrl;
   }
 
-  async function analyzeVideo() {
+async function analyzeVideo() {
   if (!videoFile) {
     alert("Please upload a video first.");
     return;
@@ -70,9 +70,55 @@ export default function SchedulePostForm() {
   setAnalysis(null);
 
   try {
+    const video = document.createElement("video");
+    video.src = URL.createObjectURL(videoFile);
+    video.muted = true;
+    video.playsInline = true;
+    video.crossOrigin = "anonymous";
+
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => resolve();
+      video.onerror = () => reject(new Error("Could not load video."));
+    });
+
+    const duration = video.duration || 1;
+    const captureTimes = [
+      duration * 0.1,
+      duration * 0.3,
+      duration * 0.5,
+      duration * 0.7,
+      duration * 0.9,
+    ];
+
     const formData = new FormData();
-    formData.append("video", videoFile);
     formData.append("platforms", platforms.join(", "));
+
+    for (let i = 0; i < captureTimes.length; i++) {
+      video.currentTime = captureTimes[i];
+
+      await new Promise<void>((resolve) => {
+        video.onseeked = () => resolve();
+      });
+
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) continue;
+
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.8)
+      );
+
+      if (blob) {
+        formData.append("frames", blob, `frame-${i}.jpg`);
+      }
+    }
+
+    URL.revokeObjectURL(video.src);
 
     const response = await fetch("/api/analyze-video", {
       method: "POST",
@@ -93,7 +139,7 @@ export default function SchedulePostForm() {
     }
   } catch (error) {
     console.error(error);
-  alert(error instanceof Error ? error.message : "AI video analysis failed.");
+    alert(error instanceof Error ? error.message : "AI video analysis failed.");
   } finally {
     setAnalyzing(false);
   }
