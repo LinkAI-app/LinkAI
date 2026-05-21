@@ -93,7 +93,7 @@ export default function SchedulePostForm() {
     }
   } catch (error) {
     console.error(error);
-    alert("AI video analysis failed.");
+  alert(error instanceof Error ? error.message : "AI video analysis failed.");
   } finally {
     setAnalyzing(false);
   }
