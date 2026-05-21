@@ -3,12 +3,32 @@
 import { useState } from "react";
 
 export default function SchedulePostForm() {
-  const [platform, setPlatform] = useState("instagram");
+  const [platforms, setPlatforms] = useState<string[]>([
+    "instagram",
+    "facebook",
+    "tiktok",
+    "youtube",
+  ]);
   const [caption, setCaption] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [scheduledFor, setScheduledFor] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
+
+  const availablePlatforms = [
+    { id: "instagram", label: "Instagram" },
+    { id: "facebook", label: "Facebook" },
+    { id: "tiktok", label: "TikTok" },
+    { id: "youtube", label: "YouTube" },
+  ];
+
+  function togglePlatform(platform: string) {
+    setPlatforms((current) =>
+      current.includes(platform)
+        ? current.filter((item) => item !== platform)
+        : [...current, platform]
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,7 +43,7 @@ export default function SchedulePostForm() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          platform,
+          platforms,
           caption,
           media_url: mediaUrl,
           scheduled_for: scheduledFor,
@@ -32,14 +52,17 @@ export default function SchedulePostForm() {
 
       const data = await res.json();
 
-      if (data.post) {
-        setSuccess("Post scheduled successfully ✅");
+      if (data.posts) {
+        setSuccess("Post scheduled across selected platforms ✅");
         setCaption("");
         setMediaUrl("");
         setScheduledFor("");
+      } else if (data.error) {
+        alert(data.error);
       }
     } catch (err) {
       console.error(err);
+      alert("Scheduling failed.");
     } finally {
       setLoading(false);
     }
@@ -47,24 +70,31 @@ export default function SchedulePostForm() {
 
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-      <h2 className="text-2xl font-bold mb-6">
-        Schedule a Post
+      <h2 className="text-2xl font-bold mb-2">
+        Schedule Across Platforms
       </h2>
 
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-4"
-      >
-        <select
-          value={platform}
-          onChange={(e) => setPlatform(e.target.value)}
-          className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
-        >
-          <option value="instagram">Instagram</option>
-          <option value="facebook">Facebook</option>
-          <option value="tiktok">TikTok</option>
-          <option value="youtube">YouTube</option>
-        </select>
+      <p className="text-gray-400 mb-6">
+        Create one post and schedule it to Instagram, Facebook, TikTok, and YouTube.
+      </p>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {availablePlatforms.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              onClick={() => togglePlatform(item.id)}
+              className={`p-3 rounded-xl border font-bold ${
+                platforms.includes(item.id)
+                  ? "bg-gradient-to-r from-purple-600 to-blue-600 border-transparent"
+                  : "bg-black/30 border-white/10 text-gray-300"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
 
         <textarea
           placeholder="Write your caption..."
@@ -91,9 +121,9 @@ export default function SchedulePostForm() {
         <button
           type="submit"
           disabled={loading}
-          className="bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 px-6 py-3 rounded-xl font-bold"
+          className="bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 px-6 py-3 rounded-xl font-bold disabled:opacity-50"
         >
-          {loading ? "Scheduling..." : "Schedule Post"}
+          {loading ? "Scheduling..." : "Schedule to Selected Platforms"}
         </button>
 
         {success && (

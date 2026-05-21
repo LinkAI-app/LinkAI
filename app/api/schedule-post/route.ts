@@ -8,20 +8,28 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
-    const { platform, caption, media_url, scheduled_for } =
+    const { platforms, caption, media_url, scheduled_for } =
       await req.json();
+
+    if (!platforms || platforms.length === 0) {
+      return NextResponse.json(
+        { error: "Choose at least one platform." },
+        { status: 400 }
+      );
+    }
+
+    const posts = platforms.map((platform: string) => ({
+      platform,
+      caption,
+      media_url,
+      scheduled_for,
+      status: "scheduled",
+    }));
 
     const { data, error } = await supabase
       .from("scheduled_posts")
-      .insert({
-        platform,
-        caption,
-        media_url,
-        scheduled_for,
-        status: "scheduled",
-      })
-      .select()
-      .single();
+      .insert(posts)
+      .select();
 
     if (error) {
       return NextResponse.json(
@@ -30,10 +38,10 @@ export async function POST(req: Request) {
       );
     }
 
-    return NextResponse.json({ post: data });
+    return NextResponse.json({ posts: data });
   } catch (error: any) {
     return NextResponse.json(
-      { error: error.message || "Failed to schedule post" },
+      { error: error.message || "Failed to schedule posts." },
       { status: 500 }
     );
   }
