@@ -1,83 +1,95 @@
-import OpenAI from "openai";
 import { NextResponse } from "next/server";
+import OpenAI from "openai";
+import fs from "fs";
+import os from "os";
+import path from "path";
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY!,
 });
 
 export async function POST(req: Request) {
   try {
-    const { platform, niche, language, videoName } = await req.json();
+    const formData = await req.formData();
+
+    const file = formData.get("video") as File | null;
+    const platforms = formData.get("platforms")?.toString() || "";
+
+    if (!file) {
+      return NextResponse.json(
+        { error: "No video uploaded." },
+        { status: 400 }
+      );
+    }
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const tempPath = path.join(os.tmpdir(), file.name);
+    fs.writeFileSync(tempPath, buffer);
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(tempPath),
+      model: "whisper-1",
+    });
 
     const prompt = `
-You are LinkAI, an AI video growth coach.
+You are LinkAI, an expert social media strategist.
 
-Analyze this uploaded creator video concept.
+Analyze this uploaded video based on its transcript.
 
-Platform: ${platform}
-Niche: ${niche}
-Language: ${language}
-Video file name: ${videoName}
+Platforms selected: ${platforms}
 
-IMPORTANT:
-Write everything completely in ${language}.
-Do not use English unless the selected language is English.
+Transcript:
+${transcription.text}
 
-Return ONLY valid JSON with this exact structure:
+Return ONLY valid JSON with this exact shape:
 {
-  "analysis": "A detailed but easy-to-understand video analysis with hook feedback, pacing advice, retention advice, caption advice, CTA advice, and what the creator should improve.",
-  "hooks": [
-    "better hook 1",
-    "better hook 2",
-    "better hook 3",
-    "better hook 4",
-    "better hook 5"
-  ],
-  "hashtags": [
-    "hashtag1",
-    "hashtag2",
-    "hashtag3",
-    "hashtag4",
-    "hashtag5",
-    "hashtag6",
-    "hashtag7",
-    "hashtag8",
-    "hashtag9",
-    "hashtag10"
-  ]
+  "detectedTopic": "",
+  "detectedNiche": "",
+  "videoSummary": "",
+  "hooks": ["", "", "", "", ""],
+  "caption": "",
+  "hashtags": ["", "", "", "", "", "", "", "", "", ""],
+  "analysis": "",
+  "platformTips": {
+    "instagram": "",
+    "facebook": "",
+    "tiktok": "",
+    "youtube": ""
+  }
 }
+
+Rules:
+- Do NOT make generic social media advice.
+- Everything must be based on the actual transcript.
+- If the transcript is limited, say what can be inferred and what cannot.
+- Hooks must be specific to this exact video.
+- Hashtags must be related to the actual topic.
 `;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      temperature: 1,
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      response_format: { type: "json_object" },
     });
 
-    const text = completion.choices[0].message.content || "{}";
+    fs.unlinkSync(tempPath);
 
-    const cleaned = text
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
+    const content = completion.choices[0]?.message?.content || "{}";
+    const parsed = JSON.parse(content);
 
-    const data = JSON.parse(cleaned);
-
-    return NextResponse.json({
-      analysis: data.analysis || "",
-      hooks: data.hooks || [],
-      hashtags: data.hashtags || [],
-    });
+    return NextResponse.json(parsed);
   } catch (error: any) {
-    console.error("VIDEO ANALYSIS ERROR:", error);
+    console.error(error);
 
     return NextResponse.json(
-      {
-        error: error.message || "Video analysis failed",
-        analysis: "",
-        hooks: [],
-        hashtags: [],
-      },
+      { error: error.message || "Video analysis failed." },
       { status: 500 }
     );
   }

@@ -61,44 +61,43 @@ export default function SchedulePostForm() {
   }
 
   async function analyzeVideo() {
-    if (!videoFile) {
-      alert("Please upload a video first.");
+  if (!videoFile) {
+    alert("Please upload a video first.");
+    return;
+  }
+
+  setAnalyzing(true);
+  setAnalysis(null);
+
+  try {
+    const formData = new FormData();
+    formData.append("video", videoFile);
+    formData.append("platforms", platforms.join(", "));
+
+    const response = await fetch("/api/analyze-video", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      alert(data.error);
       return;
     }
 
-    setAnalyzing(true);
-    setAnalysis(null);
+    setAnalysis(data);
 
-    try {
-      const response = await fetch("/api/analyze-video", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          platform: platforms.join(", "),
-          niche: "Social Media",
-          language: "English",
-          videoName: videoFile.name,
-        }),
-      });
-
-      const data = await response.json();
-
-      setAnalysis(data);
-
-      if (data.caption) {
-        setCaption(data.caption);
-      } else if (data.analysis) {
-        setCaption(data.analysis.slice(0, 220));
-      }
-    } catch (error) {
-      console.error(error);
-      alert("AI video analysis failed.");
-    } finally {
-      setAnalyzing(false);
+    if (data.caption) {
+      setCaption(data.caption);
     }
+  } catch (error) {
+    console.error(error);
+    alert("AI video analysis failed.");
+  } finally {
+    setAnalyzing(false);
   }
+}
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
