@@ -4,13 +4,13 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import ffmpeg from "fluent-ffmpeg";
-import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
+import ffmpegStatic from "ffmpeg-static";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+ffmpeg.setFfmpegPath(ffmpegStatic as string);
 
 function extractAudio(videoPath: string, audioPath: string) {
   return new Promise<void>((resolve, reject) => {
@@ -26,6 +26,9 @@ function extractAudio(videoPath: string, audioPath: string) {
 }
 
 export async function POST(req: Request) {
+  let videoPath = "";
+  let audioPath = "";
+
   try {
     const formData = await req.formData();
 
@@ -43,8 +46,9 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(bytes);
 
     const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const videoPath = path.join(os.tmpdir(), `${Date.now()}-${safeName}`);
-    const audioPath = path.join(os.tmpdir(), `${Date.now()}-audio.mp3`);
+
+    videoPath = path.join(os.tmpdir(), `${Date.now()}-${safeName}`);
+    audioPath = path.join(os.tmpdir(), `${Date.now()}-audio.mp3`);
 
     fs.writeFileSync(videoPath, buffer);
 
@@ -97,19 +101,19 @@ Rules:
       response_format: { type: "json_object" },
     });
 
-    if (fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
-    if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
-
     const content = completion.choices[0]?.message?.content || "{}";
     const parsed = JSON.parse(content);
 
     return NextResponse.json(parsed);
   } catch (error: any) {
-    console.error(error);
+    console.error("VIDEO ANALYSIS ERROR:", error);
 
     return NextResponse.json(
       { error: error.message || "Video analysis failed." },
       { status: 500 }
     );
+  } finally {
+    if (videoPath && fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
+    if (audioPath && fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
   }
 }
