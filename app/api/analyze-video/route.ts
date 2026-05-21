@@ -4,13 +4,13 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import ffmpeg from "fluent-ffmpeg";
-import ffmpegStatic from "ffmpeg-static";
+import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-ffmpeg.setFfmpegPath(ffmpegStatic as string);
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 function extractAudio(videoPath: string, audioPath: string) {
   return new Promise<void>((resolve, reject) => {
