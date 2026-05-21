@@ -35,30 +35,29 @@ export default function SchedulePostForm() {
     );
   }
 
-  async function uploadVideo() {
-    if (!videoFile) {
-      alert("Please upload a video first.");
-      return null;
-    }
-
-    const fileName = `${Date.now()}-${videoFile.name}`;
-
-    const { error } = await supabase.storage
-      .from("scheduled-videos")
-      .upload(fileName, videoFile);
-
-    if (error) {
-      console.error(error);
-      alert("Video upload failed.");
-      return null;
-    }
-
-    const { data } = supabase.storage
-      .from("scheduled-videos")
-      .getPublicUrl(fileName);
-
-    return data.publicUrl;
+async function uploadVideo() {
+  if (!videoFile) {
+    alert("Please upload a video first.");
+    return null;
   }
+
+  const formData = new FormData();
+  formData.append("video", videoFile);
+
+  const res = await fetch("/api/upload-video", {
+    method: "POST",
+    body: formData,
+  });
+
+  const data = await res.json();
+
+  if (data.error) {
+    alert(data.error);
+    return null;
+  }
+
+  return data.url;
+}
 
 async function analyzeVideo() {
   if (!videoFile) {
