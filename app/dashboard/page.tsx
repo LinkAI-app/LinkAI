@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import SchedulePostForm from "@/components/SchedulePostForm";
 
 export default function DashboardPage() {
   const [content, setContent] = useState<any[]>([]);
@@ -145,6 +146,10 @@ export default function DashboardPage() {
               Logout
             </button>
           </div>
+        </div>
+
+        <div className="mb-8">
+          <SchedulePostForm />
         </div>
 
         <section className="mb-8 bg-white/5 border border-white/10 rounded-2xl p-6">
