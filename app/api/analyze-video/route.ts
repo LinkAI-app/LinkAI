@@ -3,10 +3,27 @@ import OpenAI from "openai";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import ffmpeg from "fluent-ffmpeg";
+import ffmpegStatic from "ffmpeg-static";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
+
+ffmpeg.setFfmpegPath(ffmpegStatic as string);
+
+function extractAudio(videoPath: string, audioPath: string) {
+  return new Promise<void>((resolve, reject) => {
+    ffmpeg(videoPath)
+      .noVideo()
+      .audioCodec("libmp3lame")
+      .audioBitrate("128k")
+      .format("mp3")
+      .save(audioPath)
+      .on("end", () => resolve())
+      .on("error", (err) => reject(err));
+  });
+}
 
 export async function POST(req: Request) {
   try {
@@ -25,18 +42,23 @@ export async function POST(req: Request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const tempPath = path.join(os.tmpdir(), file.name);
-    fs.writeFileSync(tempPath, buffer);
+    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const videoPath = path.join(os.tmpdir(), `${Date.now()}-${safeName}`);
+    const audioPath = path.join(os.tmpdir(), `${Date.now()}-audio.mp3`);
+
+    fs.writeFileSync(videoPath, buffer);
+
+    await extractAudio(videoPath, audioPath);
 
     const transcription = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(tempPath),
+      file: fs.createReadStream(audioPath),
       model: "whisper-1",
     });
 
     const prompt = `
-You are LinkAI, an expert social media strategist.
+You are LinkAI, an expert AI social media strategist.
 
-Analyze this uploaded video based on its transcript.
+Analyze this uploaded video based on the actual transcript.
 
 Platforms selected: ${platforms}
 
@@ -61,25 +83,22 @@ Return ONLY valid JSON with this exact shape:
 }
 
 Rules:
-- Do NOT make generic social media advice.
 - Everything must be based on the actual transcript.
-- If the transcript is limited, say what can be inferred and what cannot.
-- Hooks must be specific to this exact video.
-- Hashtags must be related to the actual topic.
+- Do NOT give generic social media advice.
+- If the transcript is short or unclear, say what can and cannot be inferred.
+- Hooks must match the actual video content.
+- Caption must be ready to post.
+- Hashtags must match the actual topic.
 `;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
+      messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
     });
 
-    fs.unlinkSync(tempPath);
+    if (fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
+    if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
 
     const content = completion.choices[0]?.message?.content || "{}";
     const parsed = JSON.parse(content);
