@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function SchedulePostForm() {
@@ -11,6 +11,7 @@ export default function SchedulePostForm() {
     "youtube",
   ]);
 
+  const [user, setUser] = useState<any>(null);
   const [caption, setCaption] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -19,6 +20,18 @@ export default function SchedulePostForm() {
   const [analyzing, setAnalyzing] = useState(false);
   const [success, setSuccess] = useState("");
   const [analysis, setAnalysis] = useState<any>(null);
+
+  useEffect(() => {
+    async function getUser() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      setUser(user);
+    }
+
+    getUser();
+  }, []);
 
   const availablePlatforms = [
     { id: "instagram", label: "Instagram" },
@@ -35,117 +48,122 @@ export default function SchedulePostForm() {
     );
   }
 
-async function uploadVideo() {
-  if (!videoFile) {
-    alert("Please upload a video first.");
-    return null;
-  }
-
-  const formData = new FormData();
-  formData.append("video", videoFile);
-
-  const res = await fetch("/api/upload-video", {
-    method: "POST",
-    body: formData,
-  });
-
-  const data = await res.json();
-
-  if (data.error) {
-    alert(data.error);
-    return null;
-  }
-
-  return data.url;
-}
-
-async function analyzeVideo() {
-  if (!videoFile) {
-    alert("Please upload a video first.");
-    return;
-  }
-
-  setAnalyzing(true);
-  setAnalysis(null);
-
-  try {
-    const video = document.createElement("video");
-    video.src = URL.createObjectURL(videoFile);
-    video.muted = true;
-    video.playsInline = true;
-    video.crossOrigin = "anonymous";
-
-    await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => resolve();
-      video.onerror = () => reject(new Error("Could not load video."));
-    });
-
-    const duration = video.duration || 1;
-    const captureTimes = [
-      duration * 0.1,
-      duration * 0.3,
-      duration * 0.5,
-      duration * 0.7,
-      duration * 0.9,
-    ];
-
-    const formData = new FormData();
-    formData.append("platforms", platforms.join(", "));
-
-    for (let i = 0; i < captureTimes.length; i++) {
-      video.currentTime = captureTimes[i];
-
-      await new Promise<void>((resolve) => {
-        video.onseeked = () => resolve();
-      });
-
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-
-      const ctx = canvas.getContext("2d");
-      if (!ctx) continue;
-
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/jpeg", 0.8)
-      );
-
-      if (blob) {
-        formData.append("frames", blob, `frame-${i}.jpg`);
-      }
+  async function uploadVideo() {
+    if (!videoFile) {
+      alert("Please upload a video first.");
+      return null;
     }
 
-    URL.revokeObjectURL(video.src);
+    const formData = new FormData();
+    formData.append("video", videoFile);
 
-    const response = await fetch("/api/analyze-video", {
+    const res = await fetch("/api/upload-video", {
       method: "POST",
       body: formData,
     });
 
-    const data = await response.json();
+    const data = await res.json();
 
     if (data.error) {
       alert(data.error);
+      return null;
+    }
+
+    return data.url;
+  }
+
+  async function analyzeVideo() {
+    if (!videoFile) {
+      alert("Please upload a video first.");
       return;
     }
 
-    setAnalysis(data);
+    setAnalyzing(true);
+    setAnalysis(null);
 
-    if (data.caption) {
-      setCaption(data.caption);
+    try {
+      const video = document.createElement("video");
+      video.src = URL.createObjectURL(videoFile);
+      video.muted = true;
+      video.playsInline = true;
+      video.crossOrigin = "anonymous";
+
+      await new Promise<void>((resolve, reject) => {
+        video.onloadedmetadata = () => resolve();
+        video.onerror = () => reject(new Error("Could not load video."));
+      });
+
+      const duration = video.duration || 1;
+      const captureTimes = [
+        duration * 0.1,
+        duration * 0.3,
+        duration * 0.5,
+        duration * 0.7,
+        duration * 0.9,
+      ];
+
+      const formData = new FormData();
+      formData.append("platforms", platforms.join(", "));
+
+      for (let i = 0; i < captureTimes.length; i++) {
+        video.currentTime = captureTimes[i];
+
+        await new Promise<void>((resolve) => {
+          video.onseeked = () => resolve();
+        });
+
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) continue;
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, "image/jpeg", 0.8)
+        );
+
+        if (blob) {
+          formData.append("frames", blob, `frame-${i}.jpg`);
+        }
+      }
+
+      URL.revokeObjectURL(video.src);
+
+      const response = await fetch("/api/analyze-video", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
+
+      setAnalysis(data);
+
+      if (data.caption) {
+        setCaption(data.caption);
+      }
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "AI video analysis failed.");
+    } finally {
+      setAnalyzing(false);
     }
-  } catch (error) {
-    console.error(error);
-    alert(error instanceof Error ? error.message : "AI video analysis failed.");
-  } finally {
-    setAnalyzing(false);
   }
-}
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!user?.email) {
+      alert("User email is missing. Please log out and log back in.");
+      return;
+    }
 
     setLoading(true);
     setSuccess("");
@@ -168,6 +186,8 @@ async function analyzeVideo() {
           caption,
           media_url: uploadedUrl,
           scheduled_for: scheduledFor,
+          user_id: user?.id,
+          user_email: user?.email,
         }),
       });
 

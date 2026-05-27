@@ -8,7 +8,7 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
-    const { platforms, caption, media_url, scheduled_for } =
+    const { platforms, caption, media_url, scheduled_for, user_id, user_email } =
       await req.json();
 
     if (!platforms || platforms.length === 0) {
@@ -18,7 +18,16 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!user_email) {
+      return NextResponse.json(
+        { error: "User email is missing. Please log out and log back in." },
+        { status: 400 }
+      );
+    }
+
     const posts = platforms.map((platform: string) => ({
+      user_id,
+      user_email,
       platform,
       caption,
       media_url,
@@ -32,10 +41,7 @@ export async function POST(req: Request) {
       .select();
 
     if (error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ posts: data });
