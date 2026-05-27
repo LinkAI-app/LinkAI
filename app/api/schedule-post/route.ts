@@ -31,18 +31,30 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!scheduled_for) {
+      return NextResponse.json(
+        { error: "Please choose a schedule date and time." },
+        { status: 400 }
+      );
+    }
+
     const title = caption?.slice(0, 80) || "Scheduled Video";
     const description = caption || "Scheduled video post";
 
     const posts = platforms.map((platform: string) => ({
       user_id,
       user_email,
+
       title,
       description,
+
       platform,
       caption,
       media_url,
+
       scheduled_for,
+      scheduled_time: scheduled_for,
+
       status: "scheduled",
     }));
 
