@@ -31,8 +31,8 @@ export async function GET() {
   const { data: connection } = await supabase
     .from("social_connections")
     .select("*")
-    .eq("platform", "tiktok")
-    .eq("connected", true)
+ .ilike("platform", "tiktok")
+.eq("connected", true)
     .maybeSingle();
 
   if (!connection?.access_token) {
