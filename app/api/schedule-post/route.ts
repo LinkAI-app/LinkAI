@@ -26,25 +26,23 @@ export async function POST(req: Request) {
 
     if (!user_email) {
       return NextResponse.json(
-        {
-          error:
-            "User email is missing. Please log out and log back in.",
-        },
+        { error: "User email is missing. Please log out and log back in." },
         { status: 400 }
       );
     }
 
+    const title = caption?.slice(0, 80) || "Scheduled Video";
+    const description = caption || "Scheduled video post";
+
     const posts = platforms.map((platform: string) => ({
       user_id,
       user_email,
-
-      title: caption?.slice(0, 80) || "Scheduled Video",
-
+      title,
+      description,
       platform,
       caption,
       media_url,
       scheduled_for,
-
       status: "scheduled",
     }));
 
@@ -54,18 +52,13 @@ export async function POST(req: Request) {
       .select();
 
     if (error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ posts: data });
   } catch (error: any) {
     return NextResponse.json(
-      {
-        error: error.message || "Failed to schedule posts.",
-      },
+      { error: error.message || "Failed to schedule posts." },
       { status: 500 }
     );
   }
