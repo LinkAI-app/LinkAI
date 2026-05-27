@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import SchedulePostForm from "@/components/SchedulePostForm";
+import ScheduledPostsList from "@/components/ScheduledPostsList";
 
 export default function DashboardPage() {
   const [content, setContent] = useState<any[]>([]);
@@ -147,6 +148,8 @@ export default function DashboardPage() {
             </button>
           </div>
         </div>
+
+        <ScheduledPostsList />
 
         <div className="mb-8">
           <SchedulePostForm />
