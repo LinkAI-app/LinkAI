@@ -205,7 +205,7 @@ export default function SchedulePostForm() {
       }
     } catch (err) {
       console.error(err);
-      alert("Scheduling failed.");
+    alert(err instanceof Error ? err.message : "Scheduling failed.");
     } finally {
       setLoading(false);
     }
