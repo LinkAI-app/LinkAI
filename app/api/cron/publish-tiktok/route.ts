@@ -16,7 +16,7 @@ export async function GET() {
     .from("scheduled_posts")
     .select("*")
     .ilike("platform", "tiktok")
-    .eq("status", "scheduled")
+    .in("status", ["scheduled", "uploading"])
     .lte("scheduled_time", now)
     .not("media_url", "is", null)
     .limit(1);
