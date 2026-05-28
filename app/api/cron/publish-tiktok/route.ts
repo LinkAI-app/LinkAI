@@ -15,7 +15,7 @@ export async function GET() {
   const { data: posts, error } = await supabase
     .from("scheduled_posts")
     .select("*")
-    .eq("platform", "tiktok")
+    .ilike("platform", "tiktok")
     .eq("status", "scheduled")
     .lte("scheduled_time", now)
     .limit(1);
@@ -28,52 +28,96 @@ export async function GET() {
 
   const post = posts[0];
 
+  const videoUrl = post.media_url || post.video_url;
+
+  if (!videoUrl) {
+    await supabase
+      .from("scheduled_posts")
+      .update({ status: "failed" })
+      .eq("id", post.id);
+
+    return NextResponse.json(
+      { error: "No video URL found for this scheduled post." },
+      { status: 400 }
+    );
+  }
+
   const { data: connection } = await supabase
     .from("social_connections")
     .select("*")
- .ilike("platform", "tiktok")
-.eq("connected", true)
+    .ilike("platform", "tiktok")
+    .eq("connected", true)
     .maybeSingle();
 
   if (!connection?.access_token) {
-    await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id);
-    return NextResponse.json({ error: "No connected TikTok access token found." }, { status: 400 });
+    await supabase
+      .from("scheduled_posts")
+      .update({ status: "failed" })
+      .eq("id", post.id);
+
+    return NextResponse.json(
+      { error: "No connected TikTok access token found." },
+      { status: 400 }
+    );
   }
 
-  await supabase.from("scheduled_posts").update({ status: "uploading" }).eq("id", post.id);
+  await supabase
+    .from("scheduled_posts")
+    .update({ status: "uploading" })
+    .eq("id", post.id);
 
-  const videoRes = await fetch(post.media_url);
+  const videoRes = await fetch(videoUrl);
+
+  if (!videoRes.ok) {
+    await supabase
+      .from("scheduled_posts")
+      .update({ status: "failed" })
+      .eq("id", post.id);
+
+    return NextResponse.json(
+      { error: "Could not download scheduled video file." },
+      { status: 500 }
+    );
+  }
+
   const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
   const videoSize = videoBuffer.length;
 
-  const initRes = await fetch("https://open.tiktokapis.com/v2/post/publish/video/init/", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${connection.access_token}`,
-      "Content-Type": "application/json; charset=UTF-8",
-    },
-    body: JSON.stringify({
-      post_info: {
-        title: post.caption || post.title || "Scheduled video",
-        privacy_level: "SELF_ONLY",
-        disable_duet: false,
-        disable_comment: false,
-        disable_stitch: false,
-        video_cover_timestamp_ms: 1000,
+  const initRes = await fetch(
+    "https://open.tiktokapis.com/v2/post/publish/video/init/",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${connection.access_token}`,
+        "Content-Type": "application/json; charset=UTF-8",
       },
-      source_info: {
-        source: "FILE_UPLOAD",
-        video_size: videoSize,
-        chunk_size: videoSize,
-        total_chunk_count: 1,
-      },
-    }),
-  });
+      body: JSON.stringify({
+        post_info: {
+          title: post.caption || post.title || "Scheduled video",
+          privacy_level: "SELF_ONLY",
+          disable_duet: false,
+          disable_comment: false,
+          disable_stitch: false,
+          video_cover_timestamp_ms: 1000,
+        },
+        source_info: {
+          source: "FILE_UPLOAD",
+          video_size: videoSize,
+          chunk_size: videoSize,
+          total_chunk_count: 1,
+        },
+      }),
+    }
+  );
 
   const initData = await initRes.json();
 
   if (initData.error?.code !== "ok") {
-    await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id);
+    await supabase
+      .from("scheduled_posts")
+      .update({ status: "failed" })
+      .eq("id", post.id);
+
     return NextResponse.json({ error: initData.error }, { status: 500 });
   }
 
@@ -90,8 +134,15 @@ export async function GET() {
   });
 
   if (!uploadRes.ok) {
-    await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id);
-    return NextResponse.json({ error: "TikTok video upload failed." }, { status: 500 });
+    await supabase
+      .from("scheduled_posts")
+      .update({ status: "failed" })
+      .eq("id", post.id);
+
+    return NextResponse.json(
+      { error: "TikTok video upload failed." },
+      { status: 500 }
+    );
   }
 
   await supabase
