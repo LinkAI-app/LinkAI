@@ -6,7 +6,8 @@ export async function GET() {
   const redirectUri =
     "https://www.linkaiapp.ai/api/auth/callback/tiktok";
 
-  const scope = "user.info.basic,video.publish";
+  // TEMPORARY SAFE SCOPE
+  const scope = "user.info.basic";
 
   const authUrl =
     "https://www.tiktok.com/v2/auth/authorize/" +
