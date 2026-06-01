@@ -84,6 +84,25 @@ export default function ScheduledPostsList() {
                 </span>
               </div>
 
+              {post.status === "failed" && (
+                <button
+                  onClick={async () => {
+                    await supabase
+                      .from("scheduled_posts")
+                      .update({
+                        status: "scheduled",
+                        last_error: null,
+                      })
+                      .eq("id", post.id);
+
+                    loadPosts();
+                  }}
+                  className="mb-4 bg-yellow-500/20 border border-yellow-400/30 text-yellow-300 px-4 py-2 rounded-xl text-sm font-bold"
+                >
+                  Retry Post
+                </button>
+              )}
+
               <p className="text-gray-200 font-medium mb-2">
                 {post.title || "Scheduled Video"}
               </p>
