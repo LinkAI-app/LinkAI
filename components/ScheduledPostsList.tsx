@@ -12,18 +12,46 @@ export default function ScheduledPostsList() {
   }, []);
 
   async function loadPosts() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("scheduled_posts")
       .select("*")
       .order("scheduled_time", { ascending: false });
+
+    if (error) {
+      console.error(error);
+    }
 
     setPosts(data || []);
     setLoading(false);
   }
 
+  function statusStyle(status: string) {
+    switch (status) {
+      case "posted":
+        return "bg-green-500/20 text-green-300 border-green-400/30";
+      case "uploading":
+        return "bg-blue-500/20 text-blue-300 border-blue-400/30";
+      case "failed":
+        return "bg-red-500/20 text-red-300 border-red-400/30";
+      case "scheduled":
+        return "bg-yellow-500/20 text-yellow-300 border-yellow-400/30";
+      default:
+        return "bg-white/10 text-gray-300 border-white/10";
+    }
+  }
+
   return (
     <section className="mb-8 bg-white/5 border border-white/10 rounded-2xl p-6">
-      <h2 className="text-2xl font-bold mb-4">Scheduled Posts</h2>
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <h2 className="text-2xl font-bold">Scheduled Posts</h2>
+
+        <button
+          onClick={loadPosts}
+          className="bg-white/10 border border-white/10 px-4 py-2 rounded-xl text-sm font-bold"
+        >
+          Refresh
+        </button>
+      </div>
 
       {loading ? (
         <p className="text-gray-400">Loading scheduled posts...</p>
@@ -36,19 +64,79 @@ export default function ScheduledPostsList() {
               key={post.id}
               className="bg-black/30 border border-white/10 rounded-xl p-4"
             >
-              <div className="flex flex-wrap justify-between gap-3 mb-2">
-                <p className="font-bold capitalize">{post.platform}</p>
-                <span className="text-sm text-green-300">
-                  {post.status}
+              <div className="flex flex-wrap justify-between gap-3 mb-3">
+                <div>
+                  <p className="font-bold capitalize text-lg">
+                    {post.platform}
+                  </p>
+
+                  <p className="text-gray-400 text-sm">
+                    {post.user_email || "No user email"}
+                  </p>
+                </div>
+
+                <span
+                  className={`text-sm border px-3 py-1 rounded-full font-bold capitalize ${statusStyle(
+                    post.status
+                  )}`}
+                >
+                  {post.status || "unknown"}
                 </span>
               </div>
 
-              <p className="text-gray-300 mb-2">{post.title}</p>
-
-              <p className="text-sm text-gray-400">
-                Scheduled for:{" "}
-                {new Date(post.scheduled_time).toLocaleString()}
+              <p className="text-gray-200 font-medium mb-2">
+                {post.title || "Scheduled Video"}
               </p>
+
+              {post.caption && (
+                <p className="text-gray-400 text-sm mb-3 line-clamp-3">
+                  {post.caption}
+                </p>
+              )}
+
+              <div className="grid md:grid-cols-3 gap-3 text-sm text-gray-400">
+                <div>
+                  <span className="text-gray-500">Scheduled:</span>
+                  <br />
+                  {post.scheduled_time
+                    ? new Date(post.scheduled_time).toLocaleString()
+                    : "No time"}
+                </div>
+
+                <div>
+                  <span className="text-gray-500">Retries:</span>
+                  <br />
+                  {post.retry_count || 0}
+                </div>
+
+                <div>
+                  <span className="text-gray-500">Media:</span>
+                  <br />
+                  {post.media_url ? (
+                    <a
+                      href={post.media_url}
+                      target="_blank"
+                      className="text-blue-300 underline"
+                    >
+                      View video
+                    </a>
+                  ) : (
+                    "No media"
+                  )}
+                </div>
+              </div>
+
+              {post.last_error && (
+                <div className="mt-3 bg-red-500/10 border border-red-400/20 rounded-xl p-3 text-red-300 text-sm">
+                  {post.last_error}
+                </div>
+              )}
+
+              {post.description && post.status === "failed" && (
+                <div className="mt-3 bg-red-500/10 border border-red-400/20 rounded-xl p-3 text-red-300 text-sm">
+                  {post.description}
+                </div>
+              )}
             </div>
           ))}
         </div>
