@@ -11,6 +11,22 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+async function logPost(
+  postId: string,
+  platform: string,
+  status: string,
+  message: string,
+  metadata: any = {}
+) {
+  await supabase.from("post_logs").insert({
+    post_id: postId,
+    platform,
+    status,
+    message,
+    metadata,
+  });
+}
+
 export async function GET() {
   const now = new Date().toISOString();
 
@@ -25,37 +41,42 @@ export async function GET() {
     .limit(1);
 
   if (error) {
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   if (!posts?.length) {
-    return NextResponse.json({
-      message: "No TikTok posts ready.",
-    });
+    return NextResponse.json({ message: "No TikTok posts ready." });
   }
 
   const post = posts[0];
 
-  // LOCK THE POST
+  await logPost(post.id, "tiktok", "started", "TikTok worker started.", {
+    worker_id: WORKER_ID,
+    scheduled_time: post.scheduled_time,
+  });
+
   const { error: lockError } = await supabase
     .from("scheduled_posts")
     .update({
       locked_at: new Date().toISOString(),
       locked_by: WORKER_ID,
       status: "uploading",
+      last_attempt_at: new Date().toISOString(),
     })
     .eq("id", post.id)
     .is("locked_at", null);
 
   if (lockError) {
-    return NextResponse.json(
-      { error: "Failed to lock post." },
-      { status: 500 }
-    );
+    await logPost(post.id, "tiktok", "lock_failed", "Failed to lock post.", {
+      error: lockError.message,
+    });
+
+    return NextResponse.json({ error: "Failed to lock post." }, { status: 500 });
   }
+
+  await logPost(post.id, "tiktok", "locked", "Post locked for processing.", {
+    worker_id: WORKER_ID,
+  });
 
   const { data: connection } = await supabase
     .from("social_connections")
@@ -70,10 +91,18 @@ export async function GET() {
       .update({
         status: "failed",
         description: "No connected TikTok access token found.",
+        last_error: "No connected TikTok access token found.",
         locked_at: null,
         locked_by: null,
       })
       .eq("id", post.id);
+
+    await logPost(
+      post.id,
+      "tiktok",
+      "failed",
+      "No connected TikTok access token found."
+    );
 
     return NextResponse.json(
       { error: "No connected TikTok access token found." },
@@ -82,6 +111,10 @@ export async function GET() {
   }
 
   try {
+    await logPost(post.id, "tiktok", "downloading", "Downloading video file.", {
+      media_url: post.media_url,
+    });
+
     const videoRes = await fetch(post.media_url);
 
     if (!videoRes.ok) {
@@ -90,6 +123,10 @@ export async function GET() {
 
     const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
     const videoSize = videoBuffer.length;
+
+    await logPost(post.id, "tiktok", "downloaded", "Video downloaded.", {
+      video_size: videoSize,
+    });
 
     const initRes = await fetch(
       "https://open.tiktokapis.com/v2/post/publish/video/init/",
@@ -120,11 +157,17 @@ export async function GET() {
 
     const initData = await initRes.json();
 
+    await logPost(post.id, "tiktok", "init_response", "TikTok init response.", {
+      initData,
+    });
+
     if (initData.error?.code !== "ok") {
       throw new Error(JSON.stringify(initData.error));
     }
 
     const uploadUrl = initData.data.upload_url;
+
+    await logPost(post.id, "tiktok", "uploading", "Uploading video to TikTok.");
 
     const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
@@ -146,10 +189,15 @@ export async function GET() {
         status: "posted",
         external_post_id: initData.data.publish_id,
         description: "TikTok upload completed.",
+        last_error: null,
         locked_at: null,
         locked_by: null,
       })
       .eq("id", post.id);
+
+    await logPost(post.id, "tiktok", "posted", "TikTok upload completed.", {
+      publish_id: initData.data.publish_id,
+    });
 
     return NextResponse.json({
       message: "TikTok post uploaded.",
@@ -167,10 +215,12 @@ export async function GET() {
       })
       .eq("id", post.id);
 
+    await logPost(post.id, "tiktok", "failed", "TikTok publishing failed.", {
+      error: err.message || "Unknown TikTok error",
+    });
+
     return NextResponse.json(
-      {
-        error: err.message || "TikTok publishing failed.",
-      },
+      { error: err.message || "TikTok publishing failed." },
       { status: 500 }
     );
   }
