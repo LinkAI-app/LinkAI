@@ -165,6 +165,20 @@ export default function SchedulePostForm() {
       return;
     }
 
+    if (!scheduledFor) {
+      alert("Please choose a schedule time.");
+      return;
+    }
+
+    const scheduledDate = new Date(scheduledFor);
+
+    if (Number.isNaN(scheduledDate.getTime())) {
+      alert("Please choose a valid schedule time.");
+      return;
+    }
+
+    const scheduledIso = scheduledDate.toISOString();
+
     setLoading(true);
     setSuccess("");
 
@@ -185,7 +199,8 @@ export default function SchedulePostForm() {
           platforms,
           caption,
           media_url: uploadedUrl,
-          scheduled_for: scheduledFor,
+          scheduled_for: scheduledIso,
+          scheduled_time: scheduledIso,
           user_id: user?.id,
           user_email: user?.email,
         }),
@@ -205,7 +220,7 @@ export default function SchedulePostForm() {
       }
     } catch (err) {
       console.error(err);
-    alert(err instanceof Error ? err.message : "Scheduling failed.");
+      alert(err instanceof Error ? err.message : "Scheduling failed.");
     } finally {
       setLoading(false);
     }
@@ -241,9 +256,7 @@ export default function SchedulePostForm() {
         </div>
 
         <label className="block">
-          <span className="block text-sm text-gray-300 mb-2">
-            Upload Video
-          </span>
+          <span className="block text-sm text-gray-300 mb-2">Upload Video</span>
 
           <input
             type="file"
@@ -342,11 +355,7 @@ export default function SchedulePostForm() {
           {loading ? "Scheduling..." : "Schedule Video to Selected Platforms"}
         </button>
 
-        {success && (
-          <p className="text-green-400 font-medium">
-            {success}
-          </p>
-        )}
+        {success && <p className="text-green-400 font-medium">{success}</p>}
       </form>
     </div>
   );
