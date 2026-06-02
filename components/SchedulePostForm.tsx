@@ -21,6 +21,12 @@ export default function SchedulePostForm() {
   const [success, setSuccess] = useState("");
   const [analysis, setAnalysis] = useState<any>(null);
 
+  function getLocalDateTimeValue(date = new Date()) {
+    const offset = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - offset * 60 * 1000);
+    return localDate.toISOString().slice(0, 16);
+  }
+
   useEffect(() => {
     async function getUser() {
       const {
@@ -31,6 +37,7 @@ export default function SchedulePostForm() {
     }
 
     getUser();
+    setScheduledFor(getLocalDateTimeValue());
   }, []);
 
   const availablePlatforms = [
@@ -213,7 +220,7 @@ export default function SchedulePostForm() {
         setCaption("");
         setMediaUrl("");
         setVideoFile(null);
-       setScheduledFor(new Date().toISOString().slice(0, 16));
+        setScheduledFor(getLocalDateTimeValue());
         setAnalysis(null);
       } else if (data.error) {
         alert(data.error);
@@ -340,19 +347,16 @@ export default function SchedulePostForm() {
           className="w-full bg-black/30 border border-white/10 rounded-xl p-4 min-h-[120px]"
         />
 
-      <input
-  type="datetime-local"
-  value={scheduledFor}
-  min={new Date().toISOString().slice(0, 16)}
-  onChange={(e) => {
-    try {
-      setScheduledFor(e.target.value);
-    } catch (err) {
-      console.error(err);
-    }
-  }}
-  className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
-/>
+        <input
+          type="datetime-local"
+          value={scheduledFor}
+          min={getLocalDateTimeValue()}
+          onChange={(e) => {
+            setScheduledFor(e.target.value);
+          }}
+          className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
+        />
+
         <button
           type="submit"
           disabled={loading || !videoFile}
