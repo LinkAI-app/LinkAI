@@ -29,6 +29,16 @@ async function logPost(
   });
 }
 
+async function unlockPost(postId: string) {
+  await supabase
+    .from("scheduled_posts")
+    .update({
+      locked_at: null,
+      locked_by: null,
+    })
+    .eq("id", postId);
+}
+
 export async function GET() {
   const now = new Date().toISOString();
 
@@ -76,42 +86,25 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to lock post." }, { status: 500 });
   }
 
-  const { data: connection } = await supabase
-    .from("social_connections")
-    .select("*")
-    .ilike("platform", "instagram")
-    .eq("connected", true)
-    .maybeSingle();
+  try {
+    const { data: connection } = await supabase
+      .from("social_connections")
+      .select("*")
+      .ilike("platform", "instagram")
+      .eq("connected", true)
+      .maybeSingle();
 
-  if (!connection?.access_token || !connection?.instagram_account_id) {
-    await supabase
-      .from("scheduled_posts")
-      .update({
-        status: "failed",
-        description: "No connected Instagram account/token found.",
-        last_error: "No connected Instagram account/token found.",
-        locked_at: null,
-        locked_by: null,
-      })
-      .eq("id", post.id);
+    if (!connection?.access_token || !connection?.instagram_account_id) {
+      throw new Error("No connected Instagram account/token found.");
+    }
 
     await logPost(
       post.id,
       "instagram",
-      "failed",
-      "No connected Instagram account/token found."
+      "creating_container",
+      "Creating Instagram media container.",
+      { media_url: post.media_url }
     );
-
-    return NextResponse.json(
-      { error: "No connected Instagram account/token found." },
-      { status: 400 }
-    );
-  }
-
-  try {
-    await logPost(post.id, "instagram", "creating_container", "Creating Instagram media container.", {
-      media_url: post.media_url,
-    });
 
     const containerRes = await fetch(
       `https://graph.facebook.com/v19.0/${connection.instagram_account_id}/media`,
@@ -145,55 +138,57 @@ export async function GET() {
 
     const creationId = containerData.id;
 
-    await logPost(post.id, "instagram", "publishing", "Publishing Instagram media.", {
-      creation_id: creationId,
-    });
+    let containerReady = false;
+    let attempts = 0;
 
-// WAIT FOR INSTAGRAM PROCESSING
+    while (!containerReady && attempts < 10) {
+      attempts++;
 
-let containerReady = false;
-let attempts = 0;
+      await new Promise((resolve) => setTimeout(resolve, 5000));
 
-while (!containerReady && attempts < 10) {
-  attempts++;
+      const statusRes = await fetch(
+        `https://graph.facebook.com/v19.0/${creationId}?fields=status_code,status&access_token=${connection.access_token}`
+      );
 
-  await new Promise((resolve) => setTimeout(resolve, 5000));
+      const statusData = await statusRes.json();
 
-  const statusRes = await fetch(
-    `https://graph.facebook.com/v19.0/${creationId}?fields=status_code,status&access_token=${connection.access_token}`
-  );
+      await logPost(
+        post.id,
+        "instagram",
+        "processing_check",
+        "Checking Instagram processing status.",
+        statusData
+      );
 
-  const statusData = await statusRes.json();
+      if (
+        statusData.status_code === "FINISHED" ||
+        statusData.status === "FINISHED"
+      ) {
+        containerReady = true;
+      }
 
-  await logPost(
-    post.id,
-    "instagram",
-    "processing_check",
-    "Checking Instagram processing status.",
-    statusData
-  );
+      if (
+        statusData.status_code === "ERROR" ||
+        statusData.status === "ERROR"
+      ) {
+        throw new Error("Instagram processing failed.");
+      }
+    }
 
-  if (
-    statusData.status_code === "FINISHED" ||
-    statusData.status === "FINISHED"
-  ) {
-    containerReady = true;
-  }
+    if (!containerReady) {
+      throw new Error("Instagram processing timed out.");
+    }
 
-  if (
-    statusData.status_code === "ERROR" ||
-    statusData.status === "ERROR"
-  ) {
-    throw new Error("Instagram processing failed.");
-  }
-}
+    await logPost(
+      post.id,
+      "instagram",
+      "publishing",
+      "Publishing Instagram media.",
+      { creation_id: creationId }
+    );
 
-if (!containerReady) {
-  throw new Error("Instagram processing timed out.");
-}
-
-const publishRes = await fetch(
-  `https://graph.facebook.com/v19.0/${connection.instagram_account_id}/media_publish`,
+    const publishRes = await fetch(
+      `https://graph.facebook.com/v19.0/${connection.instagram_account_id}/media_publish`,
       {
         method: "POST",
         headers: {
@@ -208,9 +203,13 @@ const publishRes = await fetch(
 
     const publishData = await publishRes.json();
 
-    await logPost(post.id, "instagram", "publish_response", "Instagram publish response.", {
-      publishData,
-    });
+    await logPost(
+      post.id,
+      "instagram",
+      "publish_response",
+      "Instagram publish response.",
+      { publishData }
+    );
 
     if (!publishData.id) {
       throw new Error(JSON.stringify(publishData));
@@ -251,6 +250,8 @@ const publishRes = await fetch(
     await logPost(post.id, "instagram", "failed", "Instagram publishing failed.", {
       error: err.message || "Unknown Instagram error",
     });
+
+    await unlockPost(post.id);
 
     return NextResponse.json(
       { error: err.message || "Instagram publishing failed." },
