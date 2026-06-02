@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+const WORKER_ID = `worker-${Math.random().toString(36).slice(2, 8)}`;
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -19,15 +21,41 @@ export async function GET() {
     .in("status", ["scheduled", "uploading"])
     .lte("scheduled_time", now)
     .not("media_url", "is", null)
+    .is("locked_at", null)
     .limit(1);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
+  }
 
   if (!posts?.length) {
-    return NextResponse.json({ message: "No TikTok posts ready." });
+    return NextResponse.json({
+      message: "No TikTok posts ready.",
+    });
   }
 
   const post = posts[0];
+
+  // LOCK THE POST
+  const { error: lockError } = await supabase
+    .from("scheduled_posts")
+    .update({
+      locked_at: new Date().toISOString(),
+      locked_by: WORKER_ID,
+      status: "uploading",
+    })
+    .eq("id", post.id)
+    .is("locked_at", null);
+
+  if (lockError) {
+    return NextResponse.json(
+      { error: "Failed to lock post." },
+      { status: 500 }
+    );
+  }
 
   const { data: connection } = await supabase
     .from("social_connections")
@@ -42,6 +70,8 @@ export async function GET() {
       .update({
         status: "failed",
         description: "No connected TikTok access token found.",
+        locked_at: null,
+        locked_by: null,
       })
       .eq("id", post.id);
 
@@ -50,11 +80,6 @@ export async function GET() {
       { status: 400 }
     );
   }
-
-  await supabase
-    .from("scheduled_posts")
-    .update({ status: "uploading" })
-    .eq("id", post.id);
 
   try {
     const videoRes = await fetch(post.media_url);
@@ -121,6 +146,8 @@ export async function GET() {
         status: "posted",
         external_post_id: initData.data.publish_id,
         description: "TikTok upload completed.",
+        locked_at: null,
+        locked_by: null,
       })
       .eq("id", post.id);
 
@@ -134,11 +161,16 @@ export async function GET() {
       .update({
         status: "failed",
         description: err.message || "TikTok publishing failed.",
+        last_error: err.message || "Unknown TikTok error",
+        locked_at: null,
+        locked_by: null,
       })
       .eq("id", post.id);
 
     return NextResponse.json(
-      { error: err.message || "TikTok publishing failed." },
+      {
+        error: err.message || "TikTok publishing failed.",
+      },
       { status: 500 }
     );
   }
