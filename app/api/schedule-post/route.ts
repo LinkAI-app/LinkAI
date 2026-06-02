@@ -38,6 +38,17 @@ export async function POST(req: Request) {
       );
     }
 
+    const scheduledDate = new Date(scheduled_for);
+
+    if (Number.isNaN(scheduledDate.getTime())) {
+      return NextResponse.json(
+        { error: "Invalid schedule date. Please choose the date/time again." },
+        { status: 400 }
+      );
+    }
+
+    const scheduledIso = scheduledDate.toISOString();
+
     const title = caption?.slice(0, 80) || "Scheduled Video";
     const description = caption || "Scheduled video post";
 
@@ -52,8 +63,8 @@ export async function POST(req: Request) {
       caption,
       media_url,
 
-      scheduled_for,
-      scheduled_time: scheduled_for,
+      scheduled_for: scheduledIso,
+      scheduled_time: scheduledIso,
 
       status: "scheduled",
     }));
