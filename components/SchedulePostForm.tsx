@@ -15,16 +15,26 @@ export default function SchedulePostForm() {
   const [caption, setCaption] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [scheduledFor, setScheduledFor] = useState("");
+
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [success, setSuccess] = useState("");
   const [analysis, setAnalysis] = useState<any>(null);
 
-  function getLocalDateTimeValue(date = new Date()) {
-    const offset = date.getTimezoneOffset();
-    const localDate = new Date(date.getTime() - offset * 60 * 1000);
-    return localDate.toISOString().slice(0, 16);
+  function getLocalDateParts(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hour = String(date.getHours()).padStart(2, "0");
+    const minute = String(date.getMinutes()).padStart(2, "0");
+
+    return {
+      date: `${year}-${month}-${day}`,
+      time: `${hour}:${minute}`,
+    };
   }
 
   useEffect(() => {
@@ -36,8 +46,11 @@ export default function SchedulePostForm() {
       setUser(user);
     }
 
+    const parts = getLocalDateParts();
+    setScheduleDate(parts.date);
+    setScheduleTime(parts.time);
+
     getUser();
-    setScheduledFor(getLocalDateTimeValue());
   }, []);
 
   const availablePlatforms = [
@@ -172,15 +185,18 @@ export default function SchedulePostForm() {
       return;
     }
 
-    if (!scheduledFor) {
-      alert("Please choose a schedule time.");
+    if (!scheduleDate || !scheduleTime) {
+      alert("Please choose a schedule date and time.");
       return;
     }
 
-    const scheduledDate = new Date(scheduledFor);
+    const [year, month, day] = scheduleDate.split("-").map(Number);
+    const [hour, minute] = scheduleTime.split(":").map(Number);
+
+    const scheduledDate = new Date(year, month - 1, day, hour, minute);
 
     if (Number.isNaN(scheduledDate.getTime())) {
-      alert("Please choose a valid schedule time.");
+      alert("Please choose a valid schedule date and time.");
       return;
     }
 
@@ -216,11 +232,14 @@ export default function SchedulePostForm() {
       const data = await res.json();
 
       if (data.posts) {
+        const parts = getLocalDateParts();
+
         setSuccess("Video scheduled across selected platforms ✅");
         setCaption("");
         setMediaUrl("");
         setVideoFile(null);
-        setScheduledFor(getLocalDateTimeValue());
+        setScheduleDate(parts.date);
+        setScheduleTime(parts.time);
         setAnalysis(null);
       } else if (data.error) {
         alert(data.error);
@@ -347,15 +366,21 @@ export default function SchedulePostForm() {
           className="w-full bg-black/30 border border-white/10 rounded-xl p-4 min-h-[120px]"
         />
 
-        <input
-          type="datetime-local"
-          value={scheduledFor}
-          min={getLocalDateTimeValue()}
-          onChange={(e) => {
-            setScheduledFor(e.target.value);
-          }}
-          className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
-        />
+        <div className="grid md:grid-cols-2 gap-3">
+          <input
+            type="date"
+            value={scheduleDate}
+            onChange={(e) => setScheduleDate(e.target.value)}
+            className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
+          />
+
+          <input
+            type="time"
+            value={scheduleTime}
+            onChange={(e) => setScheduleTime(e.target.value)}
+            className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
+          />
+        </div>
 
         <button
           type="submit"
