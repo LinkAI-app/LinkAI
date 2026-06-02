@@ -149,8 +149,51 @@ export async function GET() {
       creation_id: creationId,
     });
 
-    const publishRes = await fetch(
-      `https://graph.facebook.com/v19.0/${connection.instagram_account_id}/media_publish`,
+// WAIT FOR INSTAGRAM PROCESSING
+
+let containerReady = false;
+let attempts = 0;
+
+while (!containerReady && attempts < 10) {
+  attempts++;
+
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+
+  const statusRes = await fetch(
+    `https://graph.facebook.com/v19.0/${creationId}?fields=status_code,status&access_token=${connection.access_token}`
+  );
+
+  const statusData = await statusRes.json();
+
+  await logPost(
+    post.id,
+    "instagram",
+    "processing_check",
+    "Checking Instagram processing status.",
+    statusData
+  );
+
+  if (
+    statusData.status_code === "FINISHED" ||
+    statusData.status === "FINISHED"
+  ) {
+    containerReady = true;
+  }
+
+  if (
+    statusData.status_code === "ERROR" ||
+    statusData.status === "ERROR"
+  ) {
+    throw new Error("Instagram processing failed.");
+  }
+}
+
+if (!containerReady) {
+  throw new Error("Instagram processing timed out.");
+}
+
+const publishRes = await fetch(
+  `https://graph.facebook.com/v19.0/${connection.instagram_account_id}/media_publish`,
       {
         method: "POST",
         headers: {
