@@ -141,7 +141,7 @@ export async function GET() {
     let containerReady = false;
     let attempts = 0;
 
-    while (!containerReady && attempts < 10) {
+while (!containerReady && attempts < 24) {
       attempts++;
 
       await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -176,7 +176,7 @@ export async function GET() {
     }
 
     if (!containerReady) {
-      throw new Error("Instagram processing timed out.");
+     throw new Error("Instagram processing timed out. It may still publish shortly.");
     }
 
     await logPost(
