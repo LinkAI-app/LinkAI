@@ -366,21 +366,23 @@ export default function SchedulePostForm() {
           className="w-full bg-black/30 border border-white/10 rounded-xl p-4 min-h-[120px]"
         />
 
-        <div className="grid md:grid-cols-2 gap-3">
-          <input
-            type="date"
-            value={scheduleDate}
-            onChange={(e) => setScheduleDate(e.target.value)}
-            className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
-          />
+  <div className="grid md:grid-cols-2 gap-3">
+  <input
+    type="text"
+    placeholder="Date: YYYY-MM-DD"
+    value={scheduleDate}
+    onChange={(e) => setScheduleDate(e.target.value)}
+    className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
+  />
 
-          <input
-            type="time"
-            value={scheduleTime}
-            onChange={(e) => setScheduleTime(e.target.value)}
-            className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
-          />
-        </div>
+  <input
+    type="text"
+    placeholder="Time: HH:MM"
+    value={scheduleTime}
+    onChange={(e) => setScheduleTime(e.target.value)}
+    className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
+  />
+</div>
 
         <button
           type="submit"
