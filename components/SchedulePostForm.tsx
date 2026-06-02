@@ -213,7 +213,7 @@ export default function SchedulePostForm() {
         setCaption("");
         setMediaUrl("");
         setVideoFile(null);
-        setScheduledFor("");
+       setScheduledFor(new Date().toISOString().slice(0, 16));
         setAnalysis(null);
       } else if (data.error) {
         alert(data.error);
@@ -340,13 +340,19 @@ export default function SchedulePostForm() {
           className="w-full bg-black/30 border border-white/10 rounded-xl p-4 min-h-[120px]"
         />
 
-        <input
-          type="datetime-local"
-          value={scheduledFor}
-          onChange={(e) => setScheduledFor(e.target.value)}
-          className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
-        />
-
+      <input
+  type="datetime-local"
+  value={scheduledFor}
+  min={new Date().toISOString().slice(0, 16)}
+  onChange={(e) => {
+    try {
+      setScheduledFor(e.target.value);
+    } catch (err) {
+      console.error(err);
+    }
+  }}
+  className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
+/>
         <button
           type="submit"
           disabled={loading || !videoFile}
