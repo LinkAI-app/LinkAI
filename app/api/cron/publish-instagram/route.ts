@@ -29,10 +29,14 @@ async function logPost(
   });
 }
 
-async function unlockPost(postId: string) {
+async function markPosted(postId: string, externalPostId: string) {
   await supabase
     .from("scheduled_posts")
     .update({
+      status: "posted",
+      external_post_id: externalPostId,
+      description: "Instagram upload completed.",
+      last_error: null,
       locked_at: null,
       locked_by: null,
     })
@@ -141,7 +145,7 @@ export async function GET() {
     let containerReady = false;
     let attempts = 0;
 
-while (!containerReady && attempts < 24) {
+    while (!containerReady && attempts < 24) {
       attempts++;
 
       await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -176,7 +180,7 @@ while (!containerReady && attempts < 24) {
     }
 
     if (!containerReady) {
-     throw new Error("Instagram processing timed out. It may still publish shortly.");
+      throw new Error("Instagram processing timed out. It may still publish shortly.");
     }
 
     await logPost(
@@ -215,17 +219,7 @@ while (!containerReady && attempts < 24) {
       throw new Error(JSON.stringify(publishData));
     }
 
-    await supabase
-      .from("scheduled_posts")
-      .update({
-        status: "posted",
-        external_post_id: publishData.id,
-        description: "Instagram upload completed.",
-        last_error: null,
-        locked_at: null,
-        locked_by: null,
-      })
-      .eq("id", post.id);
+    await markPosted(post.id, publishData.id);
 
     await logPost(post.id, "instagram", "posted", "Instagram upload completed.", {
       external_post_id: publishData.id,
@@ -250,8 +244,6 @@ while (!containerReady && attempts < 24) {
     await logPost(post.id, "instagram", "failed", "Instagram publishing failed.", {
       error: err.message || "Unknown Instagram error",
     });
-
-    await unlockPost(post.id);
 
     return NextResponse.json(
       { error: err.message || "Instagram publishing failed." },
