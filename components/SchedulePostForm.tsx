@@ -106,7 +106,6 @@ export default function SchedulePostForm() {
       video.src = URL.createObjectURL(videoFile);
       video.muted = true;
       video.playsInline = true;
-      video.crossOrigin = "anonymous";
 
       await new Promise<void>((resolve, reject) => {
         video.onloadedmetadata = () => resolve();
@@ -177,11 +176,14 @@ export default function SchedulePostForm() {
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
+  async function handleSubmit() {
     if (!user?.email) {
       alert("User email is missing. Please log out and log back in.");
+      return;
+    }
+
+    if (!videoFile) {
+      alert("Please upload a video first.");
       return;
     }
 
@@ -190,8 +192,19 @@ export default function SchedulePostForm() {
       return;
     }
 
-    const [year, month, day] = scheduleDate.split("-").map(Number);
-    const [hour, minute] = scheduleTime.split(":").map(Number);
+    const dateMatch = scheduleDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const timeMatch = scheduleTime.match(/^(\d{1,2}):(\d{2})$/);
+
+    if (!dateMatch || !timeMatch) {
+      alert("Use date format YYYY-MM-DD and time format HH:MM.");
+      return;
+    }
+
+    const year = Number(dateMatch[1]);
+    const month = Number(dateMatch[2]);
+    const day = Number(dateMatch[3]);
+    const hour = Number(timeMatch[1]);
+    const minute = Number(timeMatch[2]);
 
     const scheduledDate = new Date(year, month - 1, day, hour, minute);
 
@@ -263,7 +276,7 @@ export default function SchedulePostForm() {
         then schedule it to multiple platforms.
       </p>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {availablePlatforms.map((item) => (
             <button
@@ -286,7 +299,6 @@ export default function SchedulePostForm() {
 
           <input
             type="file"
-            accept="video/*"
             onChange={(e) => {
               if (e.target.files?.[0]) {
                 setVideoFile(e.target.files[0]);
@@ -305,60 +317,6 @@ export default function SchedulePostForm() {
           {analyzing ? "Analyzing Video..." : "Analyze Video with AI"}
         </button>
 
-        {analysis && (
-          <div className="bg-black/30 border border-white/10 rounded-xl p-4 space-y-4">
-            <h3 className="text-xl font-bold">AI Video Analysis</h3>
-
-            {analysis.hooks && analysis.hooks.length > 0 && (
-              <div>
-                <p className="font-bold mb-2">Better Hooks:</p>
-                <div className="space-y-2">
-                  {analysis.hooks.map((hook: string, index: number) => (
-                    <div
-                      key={index}
-                      className="bg-white/5 border border-white/10 rounded-lg p-3"
-                    >
-                      {hook}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {analysis.caption && (
-              <div>
-                <p className="font-bold mb-2">Suggested Caption:</p>
-                <p className="text-gray-300">{analysis.caption}</p>
-              </div>
-            )}
-
-            {analysis.hashtags && analysis.hashtags.length > 0 && (
-              <div>
-                <p className="font-bold mb-2">Hashtags:</p>
-                <div className="flex flex-wrap gap-2">
-                  {analysis.hashtags.map((tag: string, index: number) => (
-                    <span
-                      key={index}
-                      className="bg-purple-600 px-3 py-1 rounded-full text-sm"
-                    >
-                      #{tag.replace("#", "")}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {analysis.analysis && (
-              <div>
-                <p className="font-bold mb-2">Improvement Notes:</p>
-                <p className="text-gray-300 whitespace-pre-line">
-                  {analysis.analysis}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
         <textarea
           placeholder="Write or edit your caption..."
           value={caption}
@@ -366,26 +324,27 @@ export default function SchedulePostForm() {
           className="w-full bg-black/30 border border-white/10 rounded-xl p-4 min-h-[120px]"
         />
 
-  <div className="grid md:grid-cols-2 gap-3">
-  <input
-    type="text"
-    placeholder="Date: YYYY-MM-DD"
-    value={scheduleDate}
-    onChange={(e) => setScheduleDate(e.target.value)}
-    className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
-  />
+        <div className="grid md:grid-cols-2 gap-3">
+          <input
+            type="text"
+            placeholder="Date: YYYY-MM-DD"
+            value={scheduleDate}
+            onChange={(e) => setScheduleDate(e.target.value)}
+            className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
+          />
 
-  <input
-    type="text"
-    placeholder="Time: HH:MM"
-    value={scheduleTime}
-    onChange={(e) => setScheduleTime(e.target.value)}
-    className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
-  />
-</div>
+          <input
+            type="text"
+            placeholder="Time: HH:MM"
+            value={scheduleTime}
+            onChange={(e) => setScheduleTime(e.target.value)}
+            className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
+          />
+        </div>
 
         <button
-          type="submit"
+          type="button"
+          onClick={handleSubmit}
           disabled={loading || !videoFile}
           className="bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 px-6 py-3 rounded-xl font-bold disabled:opacity-50"
         >
@@ -393,7 +352,7 @@ export default function SchedulePostForm() {
         </button>
 
         {success && <p className="text-green-400 font-medium">{success}</p>}
-      </form>
+      </div>
     </div>
   );
 }
