@@ -29,18 +29,56 @@ async function logPost(
   });
 }
 
+async function updatePostWithRetry(
+  postId: string,
+  values: Record<string, any>,
+  label: string
+) {
+  let lastError: any = null;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const { data, error } = await supabase
+      .from("scheduled_posts")
+      .update(values)
+      .eq("id", postId)
+      .select("id,status,external_post_id,locked_at,locked_by")
+      .maybeSingle();
+
+    if (!error && data) {
+      await logPost(postId, "instagram", `${label}_confirmed`, `${label} update confirmed.`, {
+        attempt,
+        data,
+      });
+
+      return data;
+    }
+
+    lastError = error;
+
+    await logPost(postId, "instagram", `${label}_retry`, `${label} update retry.`, {
+      attempt,
+      error: error?.message || "No row returned",
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+
+  throw new Error(lastError?.message || `${label} update failed.`);
+}
+
 async function markPosted(postId: string, externalPostId: string) {
-  await supabase
-    .from("scheduled_posts")
-    .update({
+  return updatePostWithRetry(
+    postId,
+    {
       status: "posted",
       external_post_id: externalPostId,
       description: "Instagram upload completed.",
       last_error: null,
       locked_at: null,
       locked_by: null,
-    })
-    .eq("id", postId);
+    },
+    "mark_posted"
+  );
 }
 
 export async function GET() {
@@ -50,7 +88,7 @@ export async function GET() {
     .from("scheduled_posts")
     .select("*")
     .ilike("platform", "instagram")
-    .in("status", ["scheduled", "uploading"])
+    .in("status", ["scheduled", "uploading", "processing"])
     .lte("scheduled_time", now)
     .not("media_url", "is", null)
     .is("locked_at", null)
@@ -71,7 +109,7 @@ export async function GET() {
     scheduled_time: post.scheduled_time,
   });
 
-  const { error: lockError } = await supabase
+  const { data: lockedPost, error: lockError } = await supabase
     .from("scheduled_posts")
     .update({
       locked_at: new Date().toISOString(),
@@ -80,11 +118,13 @@ export async function GET() {
       last_attempt_at: new Date().toISOString(),
     })
     .eq("id", post.id)
-    .is("locked_at", null);
+    .is("locked_at", null)
+    .select("id,status,locked_at,locked_by")
+    .maybeSingle();
 
-  if (lockError) {
+  if (lockError || !lockedPost) {
     await logPost(post.id, "instagram", "lock_failed", "Failed to lock post.", {
-      error: lockError.message,
+      error: lockError?.message || "No row locked",
     });
 
     return NextResponse.json({ error: "Failed to lock post." }, { status: 500 });
@@ -145,7 +185,7 @@ export async function GET() {
     let containerReady = false;
     let attempts = 0;
 
-   while (!containerReady && attempts < 8) {
+    while (!containerReady && attempts < 8) {
       attempts++;
 
       await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -179,29 +219,30 @@ export async function GET() {
       }
     }
 
-   if (!containerReady) {
-  await supabase
-    .from("scheduled_posts")
-    .update({
-      status: "processing",
-      description: "Instagram is still processing the video.",
-      last_error: null,
-      locked_at: null,
-      locked_by: null,
-    })
-    .eq("id", post.id);
+    if (!containerReady) {
+      await updatePostWithRetry(
+        post.id,
+        {
+          status: "processing",
+          description: "Instagram is still processing the video.",
+          last_error: null,
+          locked_at: null,
+          locked_by: null,
+        },
+        "mark_processing"
+      );
 
-  await logPost(
-    post.id,
-    "instagram",
-    "processing",
-    "Instagram is still processing the video."
-  );
+      await logPost(
+        post.id,
+        "instagram",
+        "processing",
+        "Instagram is still processing the video."
+      );
 
-  return NextResponse.json({
-    message: "Instagram is still processing the video.",
-  });
-}
+      return NextResponse.json({
+        message: "Instagram is still processing the video.",
+      });
+    }
 
     await logPost(
       post.id,
@@ -239,27 +280,30 @@ export async function GET() {
       throw new Error(JSON.stringify(publishData));
     }
 
-    await markPosted(post.id, publishData.id);
+    const confirmedPost = await markPosted(post.id, publishData.id);
 
     await logPost(post.id, "instagram", "posted", "Instagram upload completed.", {
       external_post_id: publishData.id,
+      confirmedPost,
     });
 
     return NextResponse.json({
       message: "Instagram post uploaded.",
       external_post_id: publishData.id,
+      confirmedPost,
     });
   } catch (err: any) {
-    await supabase
-      .from("scheduled_posts")
-      .update({
+    await updatePostWithRetry(
+      post.id,
+      {
         status: "failed",
         description: err.message || "Instagram publishing failed.",
         last_error: err.message || "Unknown Instagram error",
         locked_at: null,
         locked_by: null,
-      })
-      .eq("id", post.id);
+      },
+      "mark_failed"
+    );
 
     await logPost(post.id, "instagram", "failed", "Instagram publishing failed.", {
       error: err.message || "Unknown Instagram error",
