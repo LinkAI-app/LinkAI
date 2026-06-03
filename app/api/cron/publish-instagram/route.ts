@@ -145,7 +145,7 @@ export async function GET() {
     let containerReady = false;
     let attempts = 0;
 
-    while (!containerReady && attempts < 24) {
+   while (!containerReady && attempts < 8) {
       attempts++;
 
       await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -179,9 +179,29 @@ export async function GET() {
       }
     }
 
-    if (!containerReady) {
-      throw new Error("Instagram processing timed out. It may still publish shortly.");
-    }
+   if (!containerReady) {
+  await supabase
+    .from("scheduled_posts")
+    .update({
+      status: "processing",
+      description: "Instagram is still processing the video.",
+      last_error: null,
+      locked_at: null,
+      locked_by: null,
+    })
+    .eq("id", post.id);
+
+  await logPost(
+    post.id,
+    "instagram",
+    "processing",
+    "Instagram is still processing the video."
+  );
+
+  return NextResponse.json({
+    message: "Instagram is still processing the video.",
+  });
+}
 
     await logPost(
       post.id,
