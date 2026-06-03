@@ -27,10 +27,11 @@ export async function GET() {
     }
   }
 
-await runJob("retryFailedPosts", "/api/cron/retry-failed-posts");
-await runJob("cleanupStuckPosts", "/api/cron/cleanup-stuck-posts");
-await runJob("publishInstagram", "/api/cron/publish-instagram");
-await runJob("publishTikTok", "/api/cron/publish-tiktok");
+  await runJob("retryFailedPosts", "/api/cron/retry-failed-posts");
+  await runJob("cleanupStuckPosts", "/api/cron/cleanup-stuck-posts");
+  await runJob("syncInstagramPosts", "/api/cron/sync-instagram-posts");
+  await runJob("publishInstagram", "/api/cron/publish-instagram");
+  await runJob("publishTikTok", "/api/cron/publish-tiktok");
 
   return NextResponse.json({
     message: "All cron jobs completed.",
