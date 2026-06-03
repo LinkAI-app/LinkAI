@@ -324,23 +324,31 @@ export default function SchedulePostForm() {
           className="w-full bg-black/30 border border-white/10 rounded-xl p-4 min-h-[120px]"
         />
 
-        <div className="grid md:grid-cols-2 gap-3">
-          <input
-            type="text"
-            placeholder="Date: YYYY-MM-DD"
-            value={scheduleDate}
-            onChange={(e) => setScheduleDate(e.target.value)}
-            className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
-          />
+    <div className="bg-black/30 border border-white/10 rounded-xl p-4">
+  <p className="text-sm text-gray-300 mb-3">Schedule Time</p>
 
-          <input
-            type="text"
-            placeholder="Time: HH:MM"
-            value={scheduleTime}
-            onChange={(e) => setScheduleTime(e.target.value)}
-            className="w-full bg-black/30 border border-white/10 rounded-xl p-4"
-          />
-        </div>
+  <div className="grid md:grid-cols-2 gap-3">
+    <input
+      type="text"
+      placeholder="YYYY-MM-DD"
+      value={scheduleDate}
+      onChange={(e) => setScheduleDate(e.target.value)}
+      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white"
+    />
+
+    <input
+      type="text"
+      placeholder="HH:MM"
+      value={scheduleTime}
+      onChange={(e) => setScheduleTime(e.target.value)}
+      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white"
+    />
+  </div>
+
+  <p className="text-xs text-gray-500 mt-3">
+    Use your local time. Example: 2026-06-02 and 18:30
+  </p>
+</div>
 
         <button
           type="button"
