@@ -18,6 +18,9 @@ export default function SchedulePostForm() {
 
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
+  const [timeFormat, setTimeFormat] = useState<"12h" | "24h">("12h");
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
 
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -28,13 +31,107 @@ export default function SchedulePostForm() {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
-    const hour = String(date.getHours()).padStart(2, "0");
+    const hour24 = date.getHours();
     const minute = String(date.getMinutes()).padStart(2, "0");
+
+    const hour12 = hour24 % 12 || 12;
+    const ampm = hour24 >= 12 ? "PM" : "AM";
 
     return {
       date: `${year}-${month}-${day}`,
-      time: `${hour}:${minute}`,
+      time24: `${String(hour24).padStart(2, "0")}:${minute}`,
+      time12: `${hour12}:${minute} ${ampm}`,
     };
+  }
+
+  function formatDateValue(date: Date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  }
+
+  function getCalendarDays() {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+
+    const firstDay = new Date(year, month, 1);
+    const startDay = firstDay.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const blanks = Array.from({ length: startDay }, () => null);
+    const days = Array.from({ length: daysInMonth }, (_, index) => {
+      return new Date(year, month, index + 1);
+    });
+
+    return [...blanks, ...days];
+  }
+
+  function isPastDate(date: Date) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const compare = new Date(date);
+    compare.setHours(0, 0, 0, 0);
+
+    return compare < today;
+  }
+
+  function parseTimeTo24Hour(time: string) {
+    const clean = time.trim().toUpperCase();
+
+    if (timeFormat === "24h") {
+      const match = clean.match(/^(\d{1,2}):(\d{2})$/);
+      if (!match) return null;
+
+      const hour = Number(match[1]);
+      const minute = Number(match[2]);
+
+      if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+
+      return { hour, minute };
+    }
+
+    const match = clean.match(/^(\d{1,2}):(\d{2})\s?(AM|PM)$/);
+    if (!match) return null;
+
+    let hour = Number(match[1]);
+    const minute = Number(match[2]);
+    const period = match[3];
+
+    if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null;
+
+    if (period === "PM" && hour !== 12) hour += 12;
+    if (period === "AM" && hour === 12) hour = 0;
+
+    return { hour, minute };
+  }
+
+  function switchTimeFormat(format: "12h" | "24h") {
+    const parsed = parseTimeTo24Hour(scheduleTime);
+
+    if (!parsed) {
+      const parts = getLocalDateParts();
+      setTimeFormat(format);
+      setScheduleTime(format === "12h" ? parts.time12 : parts.time24);
+      return;
+    }
+
+    const tempDate = new Date();
+    tempDate.setHours(parsed.hour);
+    tempDate.setMinutes(parsed.minute);
+
+    const parts = getLocalDateParts(tempDate);
+    setTimeFormat(format);
+    setScheduleTime(format === "12h" ? parts.time12 : parts.time24);
+  }
+
+  function selectCalendarDate(date: Date) {
+    if (isPastDate(date)) return;
+
+    setScheduleDate(formatDateValue(date));
+    setShowCalendar(false);
   }
 
   useEffect(() => {
@@ -48,7 +145,8 @@ export default function SchedulePostForm() {
 
     const parts = getLocalDateParts();
     setScheduleDate(parts.date);
-    setScheduleTime(parts.time);
+    setScheduleTime(parts.time12);
+    setCalendarMonth(new Date());
 
     getUser();
   }, []);
@@ -69,48 +167,44 @@ export default function SchedulePostForm() {
   }
 
   async function uploadVideo() {
-  if (!videoFile) {
-    alert("Please upload a video first.");
-    return null;
-  }
-
-  try {
-    const extension = videoFile.name.split(".").pop() || "mp4";
-
-    const safeName = videoFile.name
-      .replace(/\.[^/.]+$/, "")
-      .replace(/[^a-zA-Z0-9-_]/g, "_")
-      .slice(0, 80);
-
-    const filePath = `${Date.now()}-${crypto.randomUUID()}-${safeName}.${extension}`;
-
-    const { error } = await supabase.storage
-      .from("scheduled-videos")
-      .upload(filePath, videoFile, {
-        contentType: videoFile.type || "video/mp4",
-        upsert: false,
-      });
-
-    if (error) {
-      alert(`Upload failed: ${error.message}`);
+    if (!videoFile) {
+      alert("Please upload a video first.");
       return null;
     }
 
-    const { data } = supabase.storage
-      .from("scheduled-videos")
-      .getPublicUrl(filePath);
+    try {
+      const extension = videoFile.name.split(".").pop() || "mp4";
 
-    return data.publicUrl;
-  } catch (error) {
-    console.error(error);
-    alert(
-      error instanceof Error
-        ? error.message
-        : "Video upload failed."
-    );
-    return null;
+      const safeName = videoFile.name
+        .replace(/\.[^/.]+$/, "")
+        .replace(/[^a-zA-Z0-9-_]/g, "_")
+        .slice(0, 80);
+
+      const filePath = `${Date.now()}-${crypto.randomUUID()}-${safeName}.${extension}`;
+
+      const { error } = await supabase.storage
+        .from("scheduled-videos")
+        .upload(filePath, videoFile, {
+          contentType: videoFile.type || "video/mp4",
+          upsert: false,
+        });
+
+      if (error) {
+        alert(`Upload failed: ${error.message}`);
+        return null;
+      }
+
+      const { data } = supabase.storage
+        .from("scheduled-videos")
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "Video upload failed.");
+      return null;
+    }
   }
-}
 
   async function analyzeVideo() {
     if (!videoFile) {
@@ -213,20 +307,28 @@ export default function SchedulePostForm() {
     }
 
     const dateMatch = scheduleDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    const timeMatch = scheduleTime.match(/^(\d{1,2}):(\d{2})$/);
+    const parsedTime = parseTimeTo24Hour(scheduleTime);
 
-    if (!dateMatch || !timeMatch) {
-      alert("Use date format YYYY-MM-DD and time format HH:MM.");
+    if (!dateMatch || !parsedTime) {
+      alert(
+        timeFormat === "12h"
+          ? "Use date format YYYY-MM-DD and time like 6:30 PM."
+          : "Use date format YYYY-MM-DD and time like 18:30."
+      );
       return;
     }
 
     const year = Number(dateMatch[1]);
     const month = Number(dateMatch[2]);
     const day = Number(dateMatch[3]);
-    const hour = Number(timeMatch[1]);
-    const minute = Number(timeMatch[2]);
 
-    const scheduledDate = new Date(year, month - 1, day, hour, minute);
+    const scheduledDate = new Date(
+      year,
+      month - 1,
+      day,
+      parsedTime.hour,
+      parsedTime.minute
+    );
 
     if (Number.isNaN(scheduledDate.getTime())) {
       alert("Please choose a valid schedule date and time.");
@@ -272,7 +374,7 @@ export default function SchedulePostForm() {
         setMediaUrl("");
         setVideoFile(null);
         setScheduleDate(parts.date);
-        setScheduleTime(parts.time);
+        setScheduleTime(timeFormat === "12h" ? parts.time12 : parts.time24);
         setAnalysis(null);
       } else if (data.error) {
         alert(data.error);
@@ -284,6 +386,11 @@ export default function SchedulePostForm() {
       setLoading(false);
     }
   }
+
+  const monthLabel = calendarMonth.toLocaleString("default", {
+    month: "long",
+    year: "numeric",
+  });
 
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
@@ -344,31 +451,136 @@ export default function SchedulePostForm() {
           className="w-full bg-black/30 border border-white/10 rounded-xl p-4 min-h-[120px]"
         />
 
-    <div className="bg-black/30 border border-white/10 rounded-xl p-4">
-  <p className="text-sm text-gray-300 mb-3">Schedule Time</p>
+        <div className="bg-black/30 border border-white/10 rounded-xl p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <p className="text-sm text-gray-300">Schedule Time</p>
 
-  <div className="grid md:grid-cols-2 gap-3">
-    <input
-      type="text"
-      placeholder="YYYY-MM-DD"
-      value={scheduleDate}
-      onChange={(e) => setScheduleDate(e.target.value)}
-      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white"
-    />
+            <div className="flex bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => switchTimeFormat("12h")}
+                className={`px-3 py-2 text-xs font-bold ${
+                  timeFormat === "12h"
+                    ? "bg-purple-600 text-white"
+                    : "text-gray-400"
+                }`}
+              >
+                Regular
+              </button>
 
-    <input
-      type="text"
-      placeholder="HH:MM"
-      value={scheduleTime}
-      onChange={(e) => setScheduleTime(e.target.value)}
-      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white"
-    />
-  </div>
+              <button
+                type="button"
+                onClick={() => switchTimeFormat("24h")}
+                className={`px-3 py-2 text-xs font-bold ${
+                  timeFormat === "24h"
+                    ? "bg-purple-600 text-white"
+                    : "text-gray-400"
+                }`}
+              >
+                Military
+              </button>
+            </div>
+          </div>
 
-  <p className="text-xs text-gray-500 mt-3">
-    Use your local time. Example: 2026-06-02 and 18:30
-  </p>
-</div>
+          <button
+            type="button"
+            onClick={() => setShowCalendar(!showCalendar)}
+            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-left text-white mb-3"
+          >
+            {scheduleDate || "Choose a date"}
+          </button>
+
+          {showCalendar && (
+            <div className="bg-[#050816] border border-white/10 rounded-xl p-4 mb-3">
+              <div className="flex items-center justify-between mb-4">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCalendarMonth(
+                      new Date(
+                        calendarMonth.getFullYear(),
+                        calendarMonth.getMonth() - 1,
+                        1
+                      )
+                    )
+                  }
+                  className="bg-white/10 px-3 py-2 rounded-lg"
+                >
+                  ←
+                </button>
+
+                <p className="font-bold">{monthLabel}</p>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCalendarMonth(
+                      new Date(
+                        calendarMonth.getFullYear(),
+                        calendarMonth.getMonth() + 1,
+                        1
+                      )
+                    )
+                  }
+                  className="bg-white/10 px-3 py-2 rounded-lg"
+                >
+                  →
+                </button>
+              </div>
+
+              <div className="grid grid-cols-7 gap-2 text-center text-xs text-gray-400 mb-2">
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
+                  (day) => (
+                    <div key={day}>{day}</div>
+                  )
+                )}
+              </div>
+
+              <div className="grid grid-cols-7 gap-2">
+                {getCalendarDays().map((day, index) => {
+                  if (!day) return <div key={index} />;
+
+                  const dateValue = formatDateValue(day);
+                  const selected = dateValue === scheduleDate;
+                  const disabled = isPastDate(day);
+
+                  return (
+                    <button
+                      type="button"
+                      key={dateValue}
+                      disabled={disabled}
+                      onClick={() => selectCalendarDate(day)}
+                      className={`p-2 rounded-lg text-sm ${
+                        selected
+                          ? "bg-purple-600 text-white font-bold"
+                          : disabled
+                          ? "bg-white/5 text-gray-600 cursor-not-allowed"
+                          : "bg-white/5 text-gray-200 hover:bg-white/10"
+                      }`}
+                    >
+                      {day.getDate()}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <input
+            type="text"
+            placeholder={timeFormat === "12h" ? "6:30 PM" : "18:30"}
+            value={scheduleTime}
+            onChange={(e) => setScheduleTime(e.target.value)}
+            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white"
+          />
+
+          <p className="text-xs text-gray-500 mt-3">
+            Auto-filled with your local time. Use{" "}
+            {timeFormat === "12h"
+              ? "regular time like 6:30 PM."
+              : "military time like 18:30."}
+          </p>
+        </div>
 
         <button
           type="button"
@@ -383,4 +595,4 @@ export default function SchedulePostForm() {
       </div>
     </div>
   );
-}[]
+}
