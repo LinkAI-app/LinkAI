@@ -45,20 +45,29 @@ async function updatePostWithRetry(
       .maybeSingle();
 
     if (!error && data) {
-      await logPost(postId, "instagram", `${label}_confirmed`, `${label} update confirmed.`, {
-        attempt,
-        data,
-      });
+      await logPost(
+        postId,
+        "instagram",
+        `${label}_confirmed`,
+        `${label} update confirmed.`,
+        { attempt, data }
+      );
 
       return data;
     }
 
     lastError = error;
 
-    await logPost(postId, "instagram", `${label}_retry`, `${label} update retry.`, {
-      attempt,
-      error: error?.message || "No row returned",
-    });
+    await logPost(
+      postId,
+      "instagram",
+      `${label}_retry`,
+      `${label} update retry.`,
+      {
+        attempt,
+        error: error?.message || "No row returned",
+      }
+    );
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
@@ -88,7 +97,7 @@ export async function GET() {
     .from("scheduled_posts")
     .select("*")
     .ilike("platform", "instagram")
-    .in("status", ["scheduled", "uploading", "processing"])
+    .in("status", ["scheduled", "processing"])
     .lte("scheduled_time", now)
     .not("media_url", "is", null)
     .is("locked_at", null)
@@ -114,7 +123,7 @@ export async function GET() {
     .update({
       locked_at: new Date().toISOString(),
       locked_by: WORKER_ID,
-      status: "uploading",
+      status: "processing",
       last_attempt_at: new Date().toISOString(),
     })
     .eq("id", post.id)
@@ -185,7 +194,7 @@ export async function GET() {
     let containerReady = false;
     let attempts = 0;
 
-    while (!containerReady && attempts < 8) {
+    while (!containerReady && attempts < 5) {
       attempts++;
 
       await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -223,24 +232,24 @@ export async function GET() {
       await updatePostWithRetry(
         post.id,
         {
-          status: "processing",
-          description: "Instagram is still processing the video.",
+          status: "scheduled",
+          description: "Instagram still processing. Will retry automatically.",
           last_error: null,
           locked_at: null,
           locked_by: null,
         },
-        "mark_processing"
+        "return_to_scheduled"
       );
 
       await logPost(
         post.id,
         "instagram",
-        "processing",
-        "Instagram is still processing the video."
+        "retrying",
+        "Instagram still processing. Returning post to scheduled queue."
       );
 
       return NextResponse.json({
-        message: "Instagram is still processing the video.",
+        message: "Instagram still processing. Will retry automatically.",
       });
     }
 
