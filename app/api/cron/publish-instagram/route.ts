@@ -42,7 +42,7 @@ async function updatePost(
     .from("scheduled_posts")
     .update(values)
     .eq("id", postId)
-    .select("id,status,external_post_id,locked_at,locked_by,last_error")
+    .select("*")
     .maybeSingle();
 
   await logPost(postId, "instagram", `${label}_result`, `${label} result.`, {
@@ -113,7 +113,7 @@ export async function GET() {
     })
     .eq("id", post.id)
     .is("locked_at", null)
-    .select("id,status,locked_at,locked_by")
+    .select("*")
     .maybeSingle();
 
   if (lockError || !lockedPost) {
