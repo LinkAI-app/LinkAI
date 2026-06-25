@@ -13,31 +13,15 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-async function logPost(
-  postId: string,
-  platform: string,
-  status: string,
-  message: string,
-  metadata: any = {}
-) {
+async function logPost(postId: string, platform: string, status: string, message: string, metadata: any = {}) {
   try {
-    await supabase.from("post_logs").insert({
-      post_id: postId,
-      platform,
-      status,
-      message,
-      metadata,
-    });
+    await supabase.from("post_logs").insert({ post_id: postId, platform, status, message, metadata });
   } catch (error) {
     console.error("Log failed:", error);
   }
 }
 
-async function updatePost(
-  postId: string,
-  values: Record<string, any>,
-  label: string
-) {
+async function updatePost(postId: string, values: Record<string, any>, label: string) {
   const { data, error } = await supabase
     .from("scheduled_posts")
     .update(values)
@@ -50,26 +34,16 @@ async function updatePost(
     error: error?.message || null,
   });
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
+  if (error) throw new Error(error.message);
   return data;
 }
 
-async function fetchWithTimeout(
-  url: string,
-  options: RequestInit = {},
-  timeoutMs = 15000
-) {
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 15000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
+    return await fetch(url, { ...options, signal: controller.signal });
   } finally {
     clearTimeout(timeout);
   }
@@ -88,13 +62,8 @@ export async function GET() {
     .is("locked_at", null)
     .limit(1);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  if (!posts?.length) {
-    return NextResponse.json({ message: "No Instagram posts ready." });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!posts?.length) return NextResponse.json({ message: "No Instagram posts ready." });
 
   const post = posts[0];
 
@@ -125,10 +94,6 @@ export async function GET() {
   }
 
   try {
-    await logPost(post.id, "instagram", "locked", "Post locked.", {
-      lockedPost,
-    });
-
     const { data: connection, error: connectionError } = await supabase
       .from("social_connections")
       .select("*")
@@ -136,69 +101,73 @@ export async function GET() {
       .eq("connected", true)
       .maybeSingle();
 
-    await logPost(
-      post.id,
-      "instagram",
-      "connection_checked",
-      "Instagram connection checked.",
-      {
-        has_connection: !!connection,
-        has_token: !!connection?.access_token,
-        has_instagram_account_id: !!connection?.instagram_account_id,
-        error: connectionError?.message || null,
-      }
-    );
+    await logPost(post.id, "instagram", "connection_checked", "Instagram connection checked.", {
+      has_connection: !!connection,
+      has_token: !!connection?.access_token,
+      has_instagram_account_id: !!connection?.instagram_account_id,
+      error: connectionError?.message || null,
+    });
 
-    if (connectionError) {
-      throw new Error(connectionError.message);
-    }
+    if (connectionError) throw new Error(connectionError.message);
 
     if (!connection?.access_token || !connection?.instagram_account_id) {
       throw new Error("No connected Instagram account/token found.");
     }
 
-    await logPost(
-      post.id,
-      "instagram",
-      "creating_container",
-      "Creating Instagram media container.",
-      { media_url: post.media_url }
-    );
+    let creationId = post.external_post_id || null;
 
-    const containerRes = await fetchWithTimeout(
-      `https://graph.facebook.com/v19.0/${connection.instagram_account_id}/media`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+    if (!creationId) {
+      await logPost(post.id, "instagram", "creating_container", "Creating Instagram media container.", {
+        media_url: post.media_url,
+      });
+
+      const containerRes = await fetchWithTimeout(
+        `https://graph.facebook.com/v19.0/${connection.instagram_account_id}/media`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            media_type: "REELS",
+            video_url: post.media_url,
+            caption: post.caption || post.title || "",
+            access_token: connection.access_token,
+          }),
         },
-        body: JSON.stringify({
-          media_type: "REELS",
-          video_url: post.media_url,
-          caption: post.caption || post.title || "",
-          access_token: connection.access_token,
-        }),
-      },
-      15000
-    );
+        15000
+      );
 
-    const containerData = await containerRes.json();
+      const containerData = await containerRes.json();
 
-    await logPost(
-      post.id,
-      "instagram",
-      "container_response",
-      "Instagram container response.",
-      { containerData }
-    );
+      await logPost(post.id, "instagram", "container_response", "Instagram container response.", {
+        containerData,
+      });
 
-    if (!containerData.id) {
-      throw new Error(JSON.stringify(containerData));
+      if (!containerData.id) throw new Error(JSON.stringify(containerData));
+
+      creationId = containerData.id;
+
+      await updatePost(
+        post.id,
+        {
+          status: "processing",
+          external_post_id: creationId,
+          description: "Instagram container created. Processing video.",
+          last_error: null,
+          locked_at: null,
+          locked_by: null,
+        },
+        "save_creation_id"
+      );
+
+      return NextResponse.json({
+        message: "Instagram container created. Will check processing next run.",
+        creation_id: creationId,
+      });
     }
 
-    const creationId = containerData.id;
-
-    await new Promise((resolve) => setTimeout(resolve, 7000));
+    await logPost(post.id, "instagram", "checking_existing_container", "Checking existing Instagram container.", {
+      creation_id: creationId,
+    });
 
     const statusRes = await fetchWithTimeout(
       `https://graph.facebook.com/v19.0/${creationId}?fields=status_code,status&access_token=${connection.access_token}`,
@@ -208,36 +177,23 @@ export async function GET() {
 
     const statusData = await statusRes.json();
 
-    await logPost(
-      post.id,
-      "instagram",
-      "processing_check",
-      "Checking Instagram processing status.",
-      statusData
-    );
+    await logPost(post.id, "instagram", "processing_check", "Checking Instagram processing status.", statusData);
 
-    if (
-      statusData.status_code !== "FINISHED" &&
-      statusData.status !== "FINISHED"
-    ) {
+    if (statusData.status_code === "ERROR" || statusData.status === "ERROR") {
+      throw new Error("Instagram processing failed.");
+    }
+
+    if (statusData.status_code !== "FINISHED" && statusData.status !== "FINISHED") {
       await updatePost(
         post.id,
         {
-          status: "scheduled",
+          status: "processing",
           description: "Instagram still processing. Will retry automatically.",
           last_error: null,
           locked_at: null,
           locked_by: null,
         },
-        "return_to_scheduled"
-      );
-
-      await logPost(
-        post.id,
-        "instagram",
-        "retrying",
-        "Instagram still processing. Returning post to scheduled queue.",
-        statusData
+        "still_processing"
       );
 
       return NextResponse.json({
@@ -246,21 +202,15 @@ export async function GET() {
       });
     }
 
-    await logPost(
-      post.id,
-      "instagram",
-      "publishing",
-      "Publishing Instagram media.",
-      { creation_id: creationId }
-    );
+    await logPost(post.id, "instagram", "publishing", "Publishing Instagram media.", {
+      creation_id: creationId,
+    });
 
     const publishRes = await fetchWithTimeout(
       `https://graph.facebook.com/v19.0/${connection.instagram_account_id}/media_publish`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           creation_id: creationId,
           access_token: connection.access_token,
@@ -271,17 +221,11 @@ export async function GET() {
 
     const publishData = await publishRes.json();
 
-    await logPost(
-      post.id,
-      "instagram",
-      "publish_response",
-      "Instagram publish response.",
-      { publishData }
-    );
+    await logPost(post.id, "instagram", "publish_response", "Instagram publish response.", {
+      publishData,
+    });
 
-    if (!publishData.id) {
-      throw new Error(JSON.stringify(publishData));
-    }
+    if (!publishData.id) throw new Error(JSON.stringify(publishData));
 
     const updatedPost = await updatePost(
       post.id,
