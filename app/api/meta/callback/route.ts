@@ -8,7 +8,6 @@ const supabase = createClient(
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-
   const code = searchParams.get("code");
 
   const appUrl =
@@ -19,7 +18,6 @@ export async function GET(req: Request) {
   }
 
   try {
-    // STEP 1: Exchange code for token
     const tokenRes = await fetch(
       `https://graph.facebook.com/v25.0/oauth/access_token?client_id=${process.env.META_APP_ID}&redirect_uri=${encodeURIComponent(
         `${appUrl}/api/meta/callback`
@@ -27,32 +25,26 @@ export async function GET(req: Request) {
     );
 
     const tokenData = await tokenRes.json();
-
     const accessToken = tokenData.access_token;
 
-    // STEP 2: Get Facebook pages
     const pagesRes = await fetch(
       `https://graph.facebook.com/v25.0/me/accounts?access_token=${accessToken}`
     );
 
     const pagesData = await pagesRes.json();
-
     const page = pagesData.data?.[0];
 
     if (!page) {
       return NextResponse.redirect(`${appUrl}/dashboard?meta=nopage`);
     }
 
-    // STEP 3: Get Instagram business account
     const igRes = await fetch(
       `https://graph.facebook.com/v25.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
     );
 
     const igData = await igRes.json();
-
     const instagramId = igData.instagram_business_account?.id;
 
-    // STEP 4: Get Instagram profile info
     let username = "instagram_user";
     let avatar = "";
 
@@ -67,29 +59,34 @@ export async function GET(req: Request) {
       avatar = profileData.profile_picture_url || "";
     }
 
-    // STEP 5: Save Facebook page connection
-await supabase.from("social_connections").upsert(
-  {
-    platform: "facebook",
-    username: page.name || "Facebook Page",
-    avatar_url: "",
-    access_token: page.access_token,
-    connected: true,
-    page_id: page.id,
-  },
-  { onConflict: "platform" }
-);
+    await supabase.from("social_connections").upsert(
+      {
+        platform: "facebook",
+        username: page.name || "Facebook Page",
+        avatar_url: "",
+        access_token: page.access_token,
+        connected: true,
+        page_id: page.id,
+      },
+      { onConflict: "platform" }
+    );
 
-// STEP 6: Save Instagram connection
-await supabase.from("social_connections").upsert(
-  {
-    platform: "instagram",
-    username,
-    avatar_url: avatar,
-    access_token: page.access_token,
-    connected: true,
-    page_id: page.id,
-    instagram_account_id: instagramId,
-  },
-  { onConflict: "platform" }
-);
+    await supabase.from("social_connections").upsert(
+      {
+        platform: "instagram",
+        username,
+        avatar_url: avatar,
+        access_token: page.access_token,
+        connected: true,
+        page_id: page.id,
+        instagram_account_id: instagramId,
+      },
+      { onConflict: "platform" }
+    );
+
+    return NextResponse.redirect(`${appUrl}/dashboard?meta=connected`);
+  } catch (err) {
+    console.error(err);
+    return NextResponse.redirect(`${appUrl}/dashboard?meta=error`);
+  }
+}
