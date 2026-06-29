@@ -25,16 +25,21 @@ export async function GET(req: Request) {
     );
 
     const tokenData = await tokenRes.json();
-    const accessToken = tokenData.access_token;
+
+    if (!tokenData.access_token) {
+      console.error("Meta token error:", tokenData);
+      return NextResponse.redirect(`${appUrl}/dashboard?meta=error`);
+    }
 
     const pagesRes = await fetch(
-      `https://graph.facebook.com/v25.0/me/accounts?access_token=${accessToken}`
+      `https://graph.facebook.com/v25.0/me/accounts?access_token=${tokenData.access_token}`
     );
 
     const pagesData = await pagesRes.json();
     const page = pagesData.data?.[0];
 
-    if (!page) {
+    if (!page?.id || !page?.access_token) {
+      console.error("Meta pages error:", pagesData);
       return NextResponse.redirect(`${appUrl}/dashboard?meta=nopage`);
     }
 
@@ -45,8 +50,8 @@ export async function GET(req: Request) {
     const igData = await igRes.json();
     const instagramId = igData.instagram_business_account?.id;
 
-    let username = "instagram_user";
-    let avatar = "";
+    let instagramUsername = "instagram_user";
+    let instagramAvatar = "";
 
     if (instagramId) {
       const profileRes = await fetch(
@@ -55,11 +60,16 @@ export async function GET(req: Request) {
 
       const profileData = await profileRes.json();
 
-      username = profileData.username || username;
-      avatar = profileData.profile_picture_url || "";
+      instagramUsername = profileData.username || instagramUsername;
+      instagramAvatar = profileData.profile_picture_url || "";
     }
 
-    await supabase.from("social_connections").upsert(
+    await supabase
+      .from("social_connections")
+      .delete()
+      .in("platform", ["facebook", "instagram"]);
+
+    const rowsToInsert = [
       {
         platform: "facebook",
         username: page.name || "Facebook Page",
@@ -68,25 +78,30 @@ export async function GET(req: Request) {
         connected: true,
         page_id: page.id,
       },
-      { onConflict: "platform" }
-    );
-
-    await supabase.from("social_connections").upsert(
       {
         platform: "instagram",
-        username,
-        avatar_url: avatar,
+        username: instagramUsername,
+        avatar_url: instagramAvatar,
         access_token: page.access_token,
         connected: true,
         page_id: page.id,
         instagram_account_id: instagramId,
       },
-      { onConflict: "platform" }
-    );
+    ];
+
+    const { data, error } = await supabase
+      .from("social_connections")
+      .insert(rowsToInsert)
+      .select("*");
+
+    if (error || !data || data.length < 2) {
+      console.error("Supabase social connection save error:", error, data);
+      return NextResponse.redirect(`${appUrl}/dashboard?meta=error`);
+    }
 
     return NextResponse.redirect(`${appUrl}/dashboard?meta=connected`);
   } catch (err) {
-    console.error(err);
+    console.error("Meta callback error:", err);
     return NextResponse.redirect(`${appUrl}/dashboard?meta=error`);
   }
 }
