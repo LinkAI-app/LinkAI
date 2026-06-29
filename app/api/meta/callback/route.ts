@@ -67,25 +67,29 @@ export async function GET(req: Request) {
       avatar = profileData.profile_picture_url || "";
     }
 
-    // STEP 5: Save to Supabase
-    await supabase.from("social_connections").insert({
-      platform: "instagram",
-      username,
-      avatar_url: avatar,
-      access_token: page.access_token,
-      connected: true,
-      page_id: page.id,
-      instagram_account_id: instagramId,
-    });
+    // STEP 5: Save Facebook page connection
+await supabase.from("social_connections").upsert(
+  {
+    platform: "facebook",
+    username: page.name || "Facebook Page",
+    avatar_url: "",
+    access_token: page.access_token,
+    connected: true,
+    page_id: page.id,
+  },
+  { onConflict: "platform" }
+);
 
-    return NextResponse.redirect(
-      `${appUrl}/dashboard?meta=connected`
-    );
-  } catch (err) {
-    console.error(err);
-
-    return NextResponse.redirect(
-      `${appUrl}/dashboard?meta=error`
-    );
-  }
-}
+// STEP 6: Save Instagram connection
+await supabase.from("social_connections").upsert(
+  {
+    platform: "instagram",
+    username,
+    avatar_url: avatar,
+    access_token: page.access_token,
+    connected: true,
+    page_id: page.id,
+    instagram_account_id: instagramId,
+  },
+  { onConflict: "platform" }
+);
