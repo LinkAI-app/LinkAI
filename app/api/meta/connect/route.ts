@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+
+  const userId = searchParams.get("user_id");
+
   const clientId = process.env.META_APP_ID!;
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/meta/callback`;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.linkaiapp.ai";
+  const redirectUri = `${appUrl}/api/meta/callback`;
 
   const scope = [
     "pages_show_list",
@@ -18,7 +23,8 @@ export async function GET() {
     `https://www.facebook.com/v25.0/dialog/oauth` +
     `?client_id=${clientId}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-    `&scope=${scope}`;
+    `&scope=${scope}` +
+    `&state=${encodeURIComponent(userId || "")}`;
 
   return NextResponse.redirect(authUrl);
 }

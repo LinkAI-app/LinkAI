@@ -9,11 +9,12 @@ const supabase = createClient(
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
+  const userId = searchParams.get("state");
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL || "https://www.linkaiapp.ai";
 
-  if (!code) {
+  if (!code || !userId) {
     return NextResponse.redirect(`${appUrl}/dashboard?meta=error`);
   }
 
@@ -67,10 +68,12 @@ export async function GET(req: Request) {
     await supabase
       .from("social_connections")
       .delete()
+      .eq("user_id", userId)
       .in("platform", ["facebook", "instagram"]);
 
     const rowsToInsert = [
       {
+        user_id: userId,
         platform: "facebook",
         username: page.name || "Facebook Page",
         avatar_url: "",
@@ -79,6 +82,7 @@ export async function GET(req: Request) {
         page_id: page.id,
       },
       {
+        user_id: userId,
         platform: "instagram",
         username: instagramUsername,
         avatar_url: instagramAvatar,
