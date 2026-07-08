@@ -33,7 +33,6 @@ export async function GET() {
   await runJob("syncInstagramPosts", "/api/cron/sync-instagram-posts");
 
   await runJob("publishInstagram", "/api/cron/publish-instagram");
-  await runJob("publishFacebook", "/api/cron/publish-facebook");
   await runJob("publishTikTok", "/api/cron/publish-tiktok");
 
   return NextResponse.json({
