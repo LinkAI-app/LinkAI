@@ -36,6 +36,8 @@ export default function ScheduledPostsList() {
         return "bg-red-500/20 text-red-300 border-red-400/30";
       case "scheduled":
         return "bg-yellow-500/20 text-yellow-300 border-yellow-400/30";
+      case "cancelled":
+        return "bg-gray-500/20 text-gray-300 border-gray-400/30";
       default:
         return "bg-white/10 text-gray-300 border-white/10";
     }
@@ -44,6 +46,27 @@ export default function ScheduledPostsList() {
   function platformLabel(platform: string) {
     if (!platform) return "Unknown";
     return platform.charAt(0).toUpperCase() + platform.slice(1);
+  }
+
+  async function cancelPost(postId: string) {
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel this scheduled post?"
+    );
+
+    if (!confirmed) return;
+
+    await supabase
+      .from("scheduled_posts")
+      .update({
+        status: "cancelled",
+        locked_at: null,
+        locked_by: null,
+        last_error: null,
+        description: "Post cancelled by user.",
+      })
+      .eq("id", postId);
+
+    loadPosts();
   }
 
   return (
@@ -110,26 +133,45 @@ export default function ScheduledPostsList() {
                 </div>
               )}
 
-              {post.status === "failed" && (
-                <button
-                  onClick={async () => {
-                    await supabase
-                      .from("scheduled_posts")
-                      .update({
-                        status: "scheduled",
-                        last_error: null,
-                        locked_at: null,
-                        locked_by: null,
-                      })
-                      .eq("id", post.id);
-
-                    loadPosts();
-                  }}
-                  className="mb-4 bg-yellow-500/20 border border-yellow-400/30 text-yellow-300 px-4 py-2 rounded-xl text-sm font-bold"
-                >
-                  Retry Post
-                </button>
+              {post.status === "cancelled" && (
+                <div className="mb-4 bg-gray-500/10 border border-gray-400/20 rounded-xl p-3 text-gray-300 text-sm">
+                  This post was cancelled.
+                </div>
               )}
+
+              <div className="flex flex-wrap gap-3 mb-4">
+                {post.status === "failed" && (
+                  <button
+                    onClick={async () => {
+                      await supabase
+                        .from("scheduled_posts")
+                        .update({
+                          status: "scheduled",
+                          last_error: null,
+                          locked_at: null,
+                          locked_by: null,
+                        })
+                        .eq("id", post.id);
+
+                      loadPosts();
+                    }}
+                    className="bg-yellow-500/20 border border-yellow-400/30 text-yellow-300 px-4 py-2 rounded-xl text-sm font-bold"
+                  >
+                    Retry Post
+                  </button>
+                )}
+
+                {(post.status === "scheduled" ||
+                  post.status === "processing" ||
+                  post.status === "uploading") && (
+                  <button
+                    onClick={() => cancelPost(post.id)}
+                    className="bg-red-500/20 border border-red-400/30 text-red-300 px-4 py-2 rounded-xl text-sm font-bold"
+                  >
+                    Cancel Post
+                  </button>
+                )}
+              </div>
 
               <div className="grid md:grid-cols-4 gap-3 text-sm text-gray-400">
                 <div>
