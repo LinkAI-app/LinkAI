@@ -7,19 +7,49 @@ export default function ScheduledPostsList() {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [editingPost, setEditingPost] = useState<any | null>(null);
+  const [editCaption, setEditCaption] = useState("");
+  const [editScheduledTime, setEditScheduledTime] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
   useEffect(() => {
     loadPosts();
   }, []);
 
+  function toLocalDateTimeValue(dateString: string) {
+    const date = new Date(dateString);
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hour = String(date.getHours()).padStart(2, "0");
+    const minute = String(date.getMinutes()).padStart(2, "0");
+
+    return `${year}-${month}-${day}T${hour}:${minute}`;
+  }
+
   async function loadPosts() {
     setLoading(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("scheduled_posts")
       .select("*")
+      .eq("user_id", user.id)
       .order("scheduled_time", { ascending: false });
 
-    if (error) console.error(error);
+    if (error) {
+      console.error(error);
+    }
 
     setPosts(data || []);
     setLoading(false);
@@ -48,6 +78,98 @@ export default function ScheduledPostsList() {
     return platform.charAt(0).toUpperCase() + platform.slice(1);
   }
 
+  function openEdit(post: any) {
+    setEditingPost(post);
+    setEditCaption(post.caption || "");
+    setEditScheduledTime(
+      post.scheduled_time
+        ? toLocalDateTimeValue(post.scheduled_time)
+        : toLocalDateTimeValue(new Date().toISOString())
+    );
+  }
+
+  function closeEdit() {
+    if (savingEdit) return;
+
+    setEditingPost(null);
+    setEditCaption("");
+    setEditScheduledTime("");
+  }
+
+  async function saveEdit() {
+    if (!editingPost) return;
+
+    if (!editScheduledTime) {
+      alert("Please choose a date and time.");
+      return;
+    }
+
+    const scheduledDate = new Date(editScheduledTime);
+
+    if (Number.isNaN(scheduledDate.getTime())) {
+      alert("Please choose a valid date and time.");
+      return;
+    }
+
+    if (scheduledDate.getTime() <= Date.now()) {
+      alert("Please choose a future date and time.");
+      return;
+    }
+
+    setSavingEdit(true);
+
+    try {
+      const scheduledIso = scheduledDate.toISOString();
+
+      const { error } = await supabase
+        .from("scheduled_posts")
+        .update({
+          caption: editCaption.trim(),
+          scheduled_time: scheduledIso,
+          scheduled_for: scheduledIso,
+          last_error: null,
+          description: "Scheduled post updated by user.",
+        })
+        .eq("id", editingPost.id)
+        .eq("status", "scheduled");
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      closeEdit();
+      await loadPosts();
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "Could not update post.");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function retryPost(postId: string) {
+    const { error } = await supabase
+      .from("scheduled_posts")
+      .update({
+        status: "scheduled",
+        retry_count: 0,
+        external_post_id: null,
+        last_error: null,
+        locked_at: null,
+        locked_by: null,
+        description: "Post returned to the scheduled queue.",
+      })
+      .eq("id", postId);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    loadPosts();
+  }
+
   async function cancelPost(postId: string) {
     const confirmed = window.confirm(
       "Are you sure you want to cancel this scheduled post?"
@@ -55,7 +177,7 @@ export default function ScheduledPostsList() {
 
     if (!confirmed) return;
 
-    await supabase
+    const { error } = await supabase
       .from("scheduled_posts")
       .update({
         status: "cancelled",
@@ -66,166 +188,246 @@ export default function ScheduledPostsList() {
       })
       .eq("id", postId);
 
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
     loadPosts();
   }
 
   return (
-    <section className="mb-8 bg-white/5 border border-white/10 rounded-2xl p-6">
-      <div className="flex items-center justify-between gap-4 mb-4">
-        <h2 className="text-2xl font-bold">Post History</h2>
+    <>
+      <section className="mb-8 bg-white/5 border border-white/10 rounded-2xl p-6">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <h2 className="text-2xl font-bold">Post History</h2>
 
-        <button
-          onClick={loadPosts}
-          className="bg-white/10 border border-white/10 px-4 py-2 rounded-xl text-sm font-bold"
-        >
-          Refresh
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={loadPosts}
+            className="bg-white/10 border border-white/10 px-4 py-2 rounded-xl text-sm font-bold"
+          >
+            Refresh
+          </button>
+        </div>
 
-      {loading ? (
-        <p className="text-gray-400">Loading posts...</p>
-      ) : posts.length === 0 ? (
-        <p className="text-gray-400">No posts yet.</p>
-      ) : (
-        <div className="space-y-4">
-          {posts.map((post) => (
-            <div
-              key={post.id}
-              className="bg-black/30 border border-white/10 rounded-xl p-4"
-            >
-              <div className="flex flex-wrap justify-between gap-3 mb-3">
-                <div>
-                  <p className="font-bold text-lg">
-                    {platformLabel(post.platform)}
-                  </p>
-                  <p className="text-gray-400 text-sm">
-                    {post.user_email || "No user email"}
-                  </p>
+        {loading ? (
+          <p className="text-gray-400">Loading posts...</p>
+        ) : posts.length === 0 ? (
+          <p className="text-gray-400">No posts yet.</p>
+        ) : (
+          <div className="space-y-4">
+            {posts.map((post) => (
+              <div
+                key={post.id}
+                className="bg-black/30 border border-white/10 rounded-xl p-4"
+              >
+                <div className="flex flex-wrap justify-between gap-3 mb-3">
+                  <div>
+                    <p className="font-bold text-lg">
+                      {platformLabel(post.platform)}
+                    </p>
+
+                    <p className="text-gray-400 text-sm">
+                      {post.user_email || "No user email"}
+                    </p>
+                  </div>
+
+                  <span
+                    className={`text-sm border px-3 py-1 rounded-full font-bold capitalize ${statusStyle(
+                      post.status
+                    )}`}
+                  >
+                    {post.status || "unknown"}
+                  </span>
                 </div>
 
-                <span
-                  className={`text-sm border px-3 py-1 rounded-full font-bold capitalize ${statusStyle(
-                    post.status
-                  )}`}
-                >
-                  {post.status || "unknown"}
-                </span>
-              </div>
-
-              <p className="text-gray-200 font-medium mb-2">
-                {post.title || "Scheduled Video"}
-              </p>
-
-              {post.caption && (
-                <p className="text-gray-400 text-sm mb-3 line-clamp-3">
-                  {post.caption}
+                <p className="text-gray-200 font-medium mb-2">
+                  {post.title || "Scheduled Video"}
                 </p>
-              )}
 
-              {post.status === "posted" && (
-                <div className="mb-4 bg-green-500/10 border border-green-400/20 rounded-xl p-3 text-green-300 text-sm">
-                  Posted successfully
-                  {post.external_post_id && (
-                    <div className="mt-1 text-green-200">
-                      Post ID: {post.external_post_id}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {post.status === "cancelled" && (
-                <div className="mb-4 bg-gray-500/10 border border-gray-400/20 rounded-xl p-3 text-gray-300 text-sm">
-                  This post was cancelled.
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-3 mb-4">
-                {post.status === "failed" && (
-                  <button
-                    onClick={async () => {
-                      await supabase
-                        .from("scheduled_posts")
-                        .update({
-                          status: "scheduled",
-                          last_error: null,
-                          locked_at: null,
-                          locked_by: null,
-                        })
-                        .eq("id", post.id);
-
-                      loadPosts();
-                    }}
-                    className="bg-yellow-500/20 border border-yellow-400/30 text-yellow-300 px-4 py-2 rounded-xl text-sm font-bold"
-                  >
-                    Retry Post
-                  </button>
+                {post.caption && (
+                  <p className="text-gray-400 text-sm mb-3 whitespace-pre-line">
+                    {post.caption}
+                  </p>
                 )}
 
-                {(post.status === "scheduled" ||
-                  post.status === "processing" ||
-                  post.status === "uploading") && (
-                  <button
-                    onClick={() => cancelPost(post.id)}
-                    className="bg-red-500/20 border border-red-400/30 text-red-300 px-4 py-2 rounded-xl text-sm font-bold"
-                  >
-                    Cancel Post
-                  </button>
+                {post.status === "posted" && (
+                  <div className="mb-4 bg-green-500/10 border border-green-400/20 rounded-xl p-3 text-green-300 text-sm">
+                    Posted successfully
+                    {post.external_post_id && (
+                      <div className="mt-1 text-green-200">
+                        Post ID: {post.external_post_id}
+                      </div>
+                    )}
+                  </div>
                 )}
-              </div>
 
-              <div className="grid md:grid-cols-4 gap-3 text-sm text-gray-400">
-                <div>
-                  <span className="text-gray-500">Scheduled:</span>
-                  <br />
-                  {post.scheduled_time
-                    ? new Date(post.scheduled_time).toLocaleString()
-                    : "No time"}
-                </div>
+                {post.status === "cancelled" && (
+                  <div className="mb-4 bg-gray-500/10 border border-gray-400/20 rounded-xl p-3 text-gray-300 text-sm">
+                    This post was cancelled.
+                  </div>
+                )}
 
-                <div>
-                  <span className="text-gray-500">Retries:</span>
-                  <br />
-                  {post.retry_count || 0}
-                </div>
-
-                <div>
-                  <span className="text-gray-500">Media:</span>
-                  <br />
-                  {post.media_url ? (
-                    <a
-                      href={post.media_url}
-                      target="_blank"
-                      className="text-blue-300 underline"
+                <div className="flex flex-wrap gap-3 mb-4">
+                  {post.status === "scheduled" && (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(post)}
+                      className="bg-purple-500/20 border border-purple-400/30 text-purple-300 px-4 py-2 rounded-xl text-sm font-bold"
                     >
-                      View video
-                    </a>
-                  ) : (
-                    "No media"
+                      Edit Post
+                    </button>
+                  )}
+
+                  {post.status === "failed" && (
+                    <button
+                      type="button"
+                      onClick={() => retryPost(post.id)}
+                      className="bg-yellow-500/20 border border-yellow-400/30 text-yellow-300 px-4 py-2 rounded-xl text-sm font-bold"
+                    >
+                      Retry Post
+                    </button>
+                  )}
+
+                  {(post.status === "scheduled" ||
+                    post.status === "processing" ||
+                    post.status === "uploading") && (
+                    <button
+                      type="button"
+                      onClick={() => cancelPost(post.id)}
+                      className="bg-red-500/20 border border-red-400/30 text-red-300 px-4 py-2 rounded-xl text-sm font-bold"
+                    >
+                      Cancel Post
+                    </button>
                   )}
                 </div>
 
-                <div>
-                  <span className="text-gray-500">Published ID:</span>
-                  <br />
-                  {post.external_post_id || "Not posted yet"}
+                <div className="grid md:grid-cols-4 gap-3 text-sm text-gray-400">
+                  <div>
+                    <span className="text-gray-500">Scheduled:</span>
+                    <br />
+                    {post.scheduled_time
+                      ? new Date(post.scheduled_time).toLocaleString()
+                      : "No time"}
+                  </div>
+
+                  <div>
+                    <span className="text-gray-500">Retries:</span>
+                    <br />
+                    {post.retry_count || 0}
+                  </div>
+
+                  <div>
+                    <span className="text-gray-500">Media:</span>
+                    <br />
+
+                    {post.media_url ? (
+                      <a
+                        href={post.media_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-300 underline"
+                      >
+                        View video
+                      </a>
+                    ) : (
+                      "No media"
+                    )}
+                  </div>
+
+                  <div>
+                    <span className="text-gray-500">Published ID:</span>
+                    <br />
+                    {post.external_post_id || "Not posted yet"}
+                  </div>
                 </div>
+
+                {post.last_error && (
+                  <div className="mt-3 bg-red-500/10 border border-red-400/20 rounded-xl p-3 text-red-300 text-sm">
+                    {post.last_error}
+                  </div>
+                )}
+
+                {post.description && post.status === "failed" && (
+                  <div className="mt-3 bg-red-500/10 border border-red-400/20 rounded-xl p-3 text-red-300 text-sm">
+                    {post.description}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {editingPost && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-[#0a0e1c] border border-white/10 rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-2xl font-bold">Edit Scheduled Post</h2>
+                <p className="text-gray-400 text-sm mt-1 capitalize">
+                  {editingPost.platform}
+                </p>
               </div>
 
-              {post.last_error && (
-                <div className="mt-3 bg-red-500/10 border border-red-400/20 rounded-xl p-3 text-red-300 text-sm">
-                  {post.last_error}
-                </div>
-              )}
-
-              {post.description && post.status === "failed" && (
-                <div className="mt-3 bg-red-500/10 border border-red-400/20 rounded-xl p-3 text-red-300 text-sm">
-                  {post.description}
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={closeEdit}
+                disabled={savingEdit}
+                className="bg-white/10 border border-white/10 w-10 h-10 rounded-xl font-bold disabled:opacity-50"
+              >
+                ×
+              </button>
             </div>
-          ))}
+
+            <label className="block mb-4">
+              <span className="block text-sm text-gray-300 mb-2">Caption</span>
+
+              <textarea
+                value={editCaption}
+                onChange={(event) => setEditCaption(event.target.value)}
+                className="w-full min-h-[140px] bg-black/30 border border-white/10 rounded-xl p-4 text-white"
+                placeholder="Write your caption..."
+              />
+            </label>
+
+            <label className="block mb-6">
+              <span className="block text-sm text-gray-300 mb-2">
+                Scheduled date and time
+              </span>
+
+              <input
+                type="datetime-local"
+                value={editScheduledTime}
+                min={toLocalDateTimeValue(new Date().toISOString())}
+                onChange={(event) => setEditScheduledTime(event.target.value)}
+                className="w-full bg-black/30 border border-white/10 rounded-xl p-4 text-white"
+              />
+            </label>
+
+            <div className="flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeEdit}
+                disabled={savingEdit}
+                className="bg-white/10 border border-white/10 px-5 py-3 rounded-xl font-bold disabled:opacity-50"
+              >
+                Close
+              </button>
+
+              <button
+                type="button"
+                onClick={saveEdit}
+                disabled={savingEdit}
+                className="bg-gradient-to-r from-purple-600 to-blue-600 px-5 py-3 rounded-xl font-bold disabled:opacity-50"
+              >
+                {savingEdit ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
-    </section>
+    </>
   );
 }
