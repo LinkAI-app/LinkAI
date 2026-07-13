@@ -130,8 +130,7 @@ export default function ScheduledPostsList() {
           last_error: null,
           description: "Scheduled post updated by user.",
         })
-        .eq("id", editingPost.id)
-        .eq("status", "scheduled");
+      .eq("id", editingPost.id);
 
       if (error) {
         alert(error.message);
