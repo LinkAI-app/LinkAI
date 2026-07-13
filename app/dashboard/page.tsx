@@ -212,6 +212,19 @@ export default function DashboardPage() {
               href="/calendar"
               className="bg-blue-500/20 px-5 py-3 rounded-xl font-bold"
             >
+              <a
+  href="/publishing"
+  className="bg-purple-500/20 text-purple-300 border border-white/10 px-5 py-3 rounded-xl font-bold"
+>
+  Manage Publishing →
+</a>
+
+<a
+  href="/planner"
+  className="bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 px-5 py-3 rounded-xl font-bold"
+>
+  🤖 AI Planner
+</a>
               Calendar
             </a>
 
