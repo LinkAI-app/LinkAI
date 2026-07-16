@@ -3,13 +3,19 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: "Planner API route is working.",
+  });
+}
+
 type PlannerRequest = {
   platform?: string;
   niche?: string;
   days?: number;
   tone?: string;
   goal?: string;
-};
 
 export async function POST(req: Request) {
   try {
