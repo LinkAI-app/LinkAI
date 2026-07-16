@@ -16,13 +16,13 @@ type PlannerRequest = {
   days?: number;
   tone?: string;
   goal?: string;
-
+};
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as PlannerRequest;
 
     const platform = body.platform?.trim() || "instagram";
-    const niche = body.niche?.trim();
+    const niche = body.niche?.trim(); 
     const tone = body.tone?.trim() || "Educational";
     const goal = body.goal?.trim() || "Grow followers";
 
