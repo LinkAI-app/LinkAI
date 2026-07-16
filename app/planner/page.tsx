@@ -251,7 +251,7 @@ export default function PlannerPage() {
               ? `Generating ${days} posts...`
               : "Generate Content Plan"}
           </button>
-        </section>
+          </section>
 
         {generating && (
           <section className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center mb-8">
