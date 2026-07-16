@@ -155,9 +155,14 @@ Requirements:
       }
     );
 
-    const responseData = await openAIResponse.json();
+   const responseData = await openAIResponse.json();
 
-    if (!openAIResponse.ok) {
+console.log(
+  "OpenAI response:",
+  JSON.stringify(responseData, null, 2)
+);
+
+if (!openAIResponse.ok) {
       console.error("OpenAI planner error:", responseData);
 
       return NextResponse.json(
