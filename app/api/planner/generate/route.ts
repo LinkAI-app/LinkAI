@@ -175,7 +175,10 @@ if (!openAIResponse.ok) {
       );
     }
 
-    const outputText = responseData.output_text;
+    const outputText = responseData.output
+  ?.flatMap((item: any) => item.content || [])
+  ?.find((content: any) => content.type === "output_text")
+  ?.text;
 
     if (!outputText) {
       console.error("Missing OpenAI output text:", responseData);
