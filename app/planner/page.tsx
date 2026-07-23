@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 type PlannedPost = {
   day: number;
@@ -22,80 +23,16 @@ export default function PlannerPage() {
 
   const [posts, setPosts] = useState<PlannedPost[]>([]);
   const [generating, setGenerating] = useState(false);
+  const [schedulingAll, setSchedulingAll] = useState(false);
+  const [schedulingPostKey, setSchedulingPostKey] = useState<string | null>(
+    null
+  );
+  const [savedPostKeys, setSavedPostKeys] = useState<string[]>([]);
   const [error, setError] = useState("");
-  const [scheduling, setScheduling] = useState(false);
+  const [success, setSuccess] = useState("");
 
-  async function generatePlan() {
-    if (!niche.trim()) {
-      setError("Please enter an industry or niche.");
-      return;
-    }
-
-    if (days < 1 || days > 30) {
-      setError("Choose between 1 and 30 days of content.");
-      return;
-    }
-
-    setGenerating(true);
-    setError("");
-    setPosts([]);
-
-    try {
-      const response = await fetch("/api/planner/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          platform,
-          niche: niche.trim(),
-          days,
-          tone,
-          goal,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || data.error) {
-        throw new Error(data.error || "Could not generate the content plan.");
-      }
-
-      if (!Array.isArray(data.posts)) {
-        throw new Error("The AI returned an invalid content plan.");
-      }
-
-      setPosts(data.posts);
-    } catch (error) {
-      console.error(error);
-
-      setError(
-        error instanceof Error
-          ? error.message
-          : "The content plan could not be generated."
-      );
-    } finally {
-      setGenerating(false);
-    }
-  }
-
-  async function scheduleAllPosts() {
-    if (posts.length === 0) {
-      setError("Generate a content plan first.");
-      return;
-    }
-
-    setScheduling(true);
-    setError("");
-
-    try {
-      // The scheduling API will be connected in the next step.
-      alert(
-        "The content plan is ready. Next, we will connect this button to bulk scheduling."
-      );
-    } finally {
-      setScheduling(false);
-    }
+  function postKey(post: PlannedPost, index: number) {
+    return `${post.day}-${index}`;
   }
 
   function platformLabel(value: string) {
@@ -113,7 +50,253 @@ export default function PlannerPage() {
     }
   }
 
-  return (
+  function createScheduledDate(post: PlannedPost) {
+    const scheduledDate = new Date();
+
+    // Day 1 means today, Day 2 means tomorrow, and so on.
+    scheduledDate.setDate(scheduledDate.getDate() + Math.max(post.day - 1, 0));
+
+    const timeMatch = post.suggested_time
+      ?.trim()
+      .match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+
+    if (timeMatch) {
+      scheduledDate.setHours(
+        Number(timeMatch[1]),
+        Number(timeMatch[2]),
+        0,
+        0
+      );
+    } else {
+      scheduledDate.setHours(12, 0, 0, 0);
+    }
+
+    // If Day 1's suggested time already passed, move it to tomorrow.
+    if (scheduledDate.getTime() <= Date.now()) {
+      scheduledDate.setDate(scheduledDate.getDate() + 1);
+    }
+
+    return scheduledDate;
+  }
+
+  function buildFullCaption(post: PlannedPost) {
+    const hashtags = post.hashtags
+      .map((hashtag) =>
+        hashtag.startsWith("#") ? hashtag : `#${hashtag}`
+      )
+      .join(" ");
+
+    return [
+      post.caption.trim(),
+      post.call_to_action.trim(),
+      hashtags,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
+  async function generatePlan() {
+    if (!niche.trim()) {
+      setError("Please enter an industry or niche.");
+      return;
+    }
+
+    if (days < 1 || days > 30) {
+      setError("Choose between 1 and 30 days of content.");
+      return;
+    }
+
+    setGenerating(true);
+    setError("");
+    setSuccess("");
+    setPosts([]);
+    setSavedPostKeys([]);
+
+    try {
+      const response = await fetch("/api/planner/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          platform,
+          niche: niche.trim(),
+          days,
+          tone,
+          goal,
+        }),
+      });
+
+      const responseText = await response.text();
+
+      let data: any;
+
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        throw new Error(
+          `The planner returned an invalid response: ${responseText.slice(
+            0,
+            150
+          )}`
+        );
+      }
+
+      if (!response.ok || data.error) {
+        throw new Error(
+          data.error || "Could not generate the content plan."
+        );
+      }
+
+      if (!Array.isArray(data.posts)) {
+        throw new Error("The AI returned an invalid content plan.");
+      }
+
+      setPosts(data.posts);
+      setSuccess(
+        `${data.posts.length} content ideas generated successfully.`
+      );
+    } catch (caughtError) {
+      console.error("Planner generation failed:", caughtError);
+
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "The content plan could not be generated."
+      );
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function savePlannerPost(
+    post: PlannedPost,
+    index: number,
+    showMessage = true
+  ) {
+    const key = postKey(post, index);
+
+    if (savedPostKeys.includes(key)) {
+      if (showMessage) {
+        setSuccess("That planner post has already been saved.");
+      }
+
+      return;
+    }
+
+    setSchedulingPostKey(key);
+    setError("");
+
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) {
+        throw new Error(authError.message);
+      }
+
+      if (!user) {
+        throw new Error("Please sign in before saving planner posts.");
+      }
+
+      const scheduledDate = createScheduledDate(post);
+      const scheduledIso = scheduledDate.toISOString();
+
+      const { error: insertError } = await supabase
+        .from("scheduled_posts")
+        .insert({
+          user_id: user.id,
+          user_email: user.email || null,
+          platform,
+          title: post.title,
+          caption: buildFullCaption(post),
+          description:
+            "AI planner draft. Add media before moving this post to the scheduled queue.",
+          scheduled_time: scheduledIso,
+          scheduled_for: scheduledIso,
+          status: "draft",
+          media_url: null,
+          retry_count: 0,
+          last_error: null,
+          locked_at: null,
+          locked_by: null,
+          external_post_id: null,
+        });
+
+      if (insertError) {
+        throw new Error(insertError.message);
+      }
+
+      setSavedPostKeys((current) =>
+        current.includes(key) ? current : [...current, key]
+      );
+
+      if (showMessage) {
+        setSuccess(
+          `"${post.title}" was saved as a draft for ${scheduledDate.toLocaleString()}. Add media in Publishing before scheduling it.`
+        );
+      }
+    } catch (caughtError) {
+      console.error("Could not save planner post:", caughtError);
+
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "The planner post could not be saved."
+      );
+
+      throw caughtError;
+    } finally {
+      setSchedulingPostKey(null);
+    }
+  }
+
+  async function saveAllPosts() {
+    if (posts.length === 0) {
+      setError("Generate a content plan first.");
+      return;
+    }
+
+    setSchedulingAll(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const unsavedPosts = posts
+        .map((post, index) => ({ post, index }))
+        .filter(
+          ({ post, index }) =>
+            !savedPostKeys.includes(postKey(post, index))
+        );
+
+      if (unsavedPosts.length === 0) {
+        setSuccess("Every planner post has already been saved.");
+        return;
+      }
+
+      for (const item of unsavedPosts) {
+        await savePlannerPost(item.post, item.index, false);
+      }
+
+      setSuccess(
+        `${unsavedPosts.length} planner posts were saved as drafts. Add media in Publishing before scheduling them.`
+      );
+    } catch (caughtError) {
+      console.error("Could not save all planner posts:", caughtError);
+
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Not all planner posts could be saved."
+      );
+    } finally {
+      setSchedulingAll(false);
+      setSchedulingPostKey(null);
+    }
+  }
+    return (
     <main className="min-h-screen bg-[#050816] text-white p-5 md:p-8">
       <div className="max-w-6xl mx-auto">
         <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
@@ -136,6 +319,13 @@ export default function PlannerPage() {
             </a>
 
             <a
+              href="/publishing"
+              className="bg-blue-500/20 border border-blue-400/30 text-blue-300 px-4 py-2 rounded-xl text-sm font-bold"
+            >
+              Publishing
+            </a>
+
+            <a
               href="/calendar"
               className="bg-purple-500/20 border border-purple-400/30 text-purple-300 px-4 py-2 rounded-xl text-sm font-bold"
             >
@@ -152,7 +342,7 @@ export default function PlannerPage() {
               <select
                 value={platform}
                 onChange={(event) => setPlatform(event.target.value)}
-                disabled={generating}
+                disabled={generating || schedulingAll}
                 className="w-full bg-black/30 border border-white/10 rounded-xl p-3 disabled:opacity-50"
               >
                 <option value="instagram">Instagram</option>
@@ -170,7 +360,7 @@ export default function PlannerPage() {
               <input
                 value={niche}
                 onChange={(event) => setNiche(event.target.value)}
-                disabled={generating}
+                disabled={generating || schedulingAll}
                 placeholder="Fitness, real estate, AI, finance..."
                 className="w-full bg-black/30 border border-white/10 rounded-xl p-3 disabled:opacity-50"
               />
@@ -186,10 +376,13 @@ export default function PlannerPage() {
                 value={days}
                 min={1}
                 max={30}
-                disabled={generating}
+                disabled={generating || schedulingAll}
                 onChange={(event) => {
                   const value = Number(event.target.value);
-                  setDays(Math.min(Math.max(value || 1, 1), 30));
+
+                  setDays(
+                    Math.min(Math.max(Number.isNaN(value) ? 1 : value, 1), 30)
+                  );
                 }}
                 className="w-full bg-black/30 border border-white/10 rounded-xl p-3 disabled:opacity-50"
               />
@@ -205,7 +398,7 @@ export default function PlannerPage() {
               <select
                 value={tone}
                 onChange={(event) => setTone(event.target.value)}
-                disabled={generating}
+                disabled={generating || schedulingAll}
                 className="w-full bg-black/30 border border-white/10 rounded-xl p-3 disabled:opacity-50"
               >
                 <option>Educational</option>
@@ -223,7 +416,7 @@ export default function PlannerPage() {
               <select
                 value={goal}
                 onChange={(event) => setGoal(event.target.value)}
-                disabled={generating}
+                disabled={generating || schedulingAll}
                 className="w-full bg-black/30 border border-white/10 rounded-xl p-3 disabled:opacity-50"
               >
                 <option>Grow followers</option>
@@ -241,17 +434,23 @@ export default function PlannerPage() {
             </div>
           )}
 
+          {success && (
+            <div className="mt-6 bg-green-500/10 border border-green-400/20 rounded-xl p-4 text-green-300">
+              {success}
+            </div>
+          )}
+
           <button
             type="button"
             onClick={generatePlan}
-            disabled={generating || !niche.trim()}
+            disabled={generating || schedulingAll || !niche.trim()}
             className="w-full mt-6 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl py-4 font-bold text-lg disabled:opacity-50"
           >
             {generating
               ? `Generating ${days} posts...`
               : "Generate Content Plan"}
           </button>
-          </section>
+        </section>
 
         {generating && (
           <section className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center mb-8">
@@ -278,85 +477,102 @@ export default function PlannerPage() {
                 <p className="text-gray-400 mt-1">
                   {platformLabel(platform)} · {niche} · {tone}
                 </p>
+
+                <p className="text-yellow-300/80 text-sm mt-2">
+                  Planner posts are saved as drafts. Add a video in Publishing
+                  before moving them into the scheduled queue.
+                </p>
               </div>
 
               <button
                 type="button"
-                onClick={scheduleAllPosts}
-                disabled={scheduling}
+                onClick={saveAllPosts}
+                disabled={schedulingAll || posts.length === 0}
                 className="bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 px-6 py-3 rounded-xl font-bold disabled:opacity-50"
               >
-                {scheduling ? "Scheduling..." : "Schedule All Posts"}
+                {schedulingAll ? "Saving Drafts..." : "Save All as Drafts"}
               </button>
             </section>
 
             <section className="space-y-5">
-              {posts.map((post, index) => (
-                <article
-                  key={`${post.day}-${index}`}
-                  className="bg-white/5 border border-white/10 rounded-2xl p-6"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
-                    <div>
-                      <p className="text-purple-300 text-sm font-bold">
-                        Day {post.day}
-                      </p>
+              {posts.map((post, index) => {
+                const key = postKey(post, index);
+                const isSaving = schedulingPostKey === key;
+                const isSaved = savedPostKeys.includes(key);
 
-                      <h3 className="text-2xl font-bold mt-1">
-                        {post.title}
-                      </h3>
+                return (
+                  <article
+                    key={key}
+                    className="bg-white/5 border border-white/10 rounded-2xl p-6"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <p className="text-purple-300 text-sm font-bold">
+                            Day {post.day}
+                          </p>
+
+                          {isSaved && (
+                            <span className="bg-green-500/15 border border-green-400/20 text-green-300 px-3 py-1 rounded-full text-xs font-bold">
+                              Draft saved
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 className="text-2xl font-bold mt-1">
+                          {post.title}
+                        </h3>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-gray-500 text-xs uppercase tracking-wide">
+                          Suggested time
+                        </p>
+
+                        <p className="text-lg font-bold mt-1">
+                          {post.suggested_time}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="text-right">
-                      <p className="text-gray-500 text-xs uppercase tracking-wide">
-                        Suggested time
-                      </p>
+                    <div className="grid lg:grid-cols-2 gap-4">
+                      <div className="bg-black/30 border border-white/10 rounded-xl p-4">
+                        <p className="text-gray-500 text-xs uppercase tracking-wide mb-2">
+                          Hook
+                        </p>
 
-                      <p className="text-lg font-bold mt-1">
-                        {post.suggested_time}
-                      </p>
+                        <p className="text-white font-medium">{post.hook}</p>
+                      </div>
+
+                      <div className="bg-black/30 border border-white/10 rounded-xl p-4">
+                        <p className="text-gray-500 text-xs uppercase tracking-wide mb-2">
+                          Content type
+                        </p>
+
+                        <p className="text-white font-medium">
+                          {post.content_type}
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="grid lg:grid-cols-2 gap-4">
-                    <div className="bg-black/30 border border-white/10 rounded-xl p-4">
+                    <div className="bg-black/30 border border-white/10 rounded-xl p-4 mt-4">
                       <p className="text-gray-500 text-xs uppercase tracking-wide mb-2">
-                        Hook
+                        Caption
                       </p>
 
-                      <p className="text-white font-medium">{post.hook}</p>
+                      <p className="text-gray-200 whitespace-pre-line">
+                        {post.caption}
+                      </p>
                     </div>
 
-                    <div className="bg-black/30 border border-white/10 rounded-xl p-4">
+                    <div className="bg-black/30 border border-white/10 rounded-xl p-4 mt-4">
                       <p className="text-gray-500 text-xs uppercase tracking-wide mb-2">
-                        Content type
+                        Call to action
                       </p>
 
-                      <p className="text-white font-medium">
-                        {post.content_type}
-                      </p>
+                      <p className="text-gray-200">{post.call_to_action}</p>
                     </div>
-                  </div>
-
-                  <div className="bg-black/30 border border-white/10 rounded-xl p-4 mt-4">
-                    <p className="text-gray-500 text-xs uppercase tracking-wide mb-2">
-                      Caption
-                    </p>
-
-                    <p className="text-gray-200 whitespace-pre-line">
-                      {post.caption}
-                    </p>
-                  </div>
-
-                  <div className="bg-black/30 border border-white/10 rounded-xl p-4 mt-4">
-                    <p className="text-gray-500 text-xs uppercase tracking-wide mb-2">
-                      Call to action
-                    </p>
-
-                    <p className="text-gray-200">{post.call_to_action}</p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 mt-4">
+                                      <div className="flex flex-wrap gap-2 mt-4">
                     {post.hashtags.map((hashtag, hashtagIndex) => {
                       const formattedHashtag = hashtag.startsWith("#")
                         ? hashtag
@@ -372,10 +588,43 @@ export default function PlannerPage() {
                       );
                     })}
                   </div>
+
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => savePlannerPost(post, index)}
+                      disabled={isSaving || isSaved}
+                      className={`px-5 py-3 rounded-xl font-bold transition ${
+                        isSaved
+                          ? "bg-green-500/20 border border-green-400/30 text-green-300 cursor-default"
+                          : "bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90"
+                      }`}
+                    >
+                      {isSaving
+                        ? "Saving..."
+                        : isSaved
+                        ? "✓ Saved as Draft"
+                        : "Save as Draft"}
+                    </button>
+
+                    <a
+                      href="/publishing"
+                      className="bg-white/10 border border-white/10 px-5 py-3 rounded-xl font-bold hover:bg-white/20 transition"
+                    >
+                      Open Publishing →
+                    </a>
+
+                    <a
+                      href="/calendar"
+                      className="bg-blue-500/20 border border-blue-400/30 text-blue-300 px-5 py-3 rounded-xl font-bold hover:bg-blue-500/30 transition"
+                    >
+                      View Calendar
+                    </a>
+                  </div>
                 </article>
-              ))}
-            </section>
-          </>
+              );
+            })}
+          </section>
         )}
       </div>
     </main>
