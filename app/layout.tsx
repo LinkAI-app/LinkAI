@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "LinkAI",
-  description: "AI tools for creators",
+  description: "AI-powered social media platform",
   icons: {
     icon: "/logo.png",
     apple: "/logo.png",
@@ -12,12 +12,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className="bg-[#050816] text-white antialiased">
+        {children}
+      </body>
     </html>
   );
 }
