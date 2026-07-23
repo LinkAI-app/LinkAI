@@ -621,12 +621,13 @@ export default function PlannerPage() {
                       View Calendar
                     </a>
                   </div>
-                </article>
+                               </article>
               );
             })}
           </section>
-        )}
-      </div>
-    </main>
-  );
+        </>
+      )}
+    </div>
+  </main>
+);
 }
