@@ -630,4 +630,464 @@ export default function PlannerPage() {
     </div>
   </main>
 );
+} 
+  async function savePlannerPost(
+    post: PlannedPost,
+    index: number,
+    showMessage = true
+  ) {
+    const key = postKey(post, index);
+
+    if (savedPostKeys.includes(key)) {
+      if (showMessage) {
+        setSuccess(t.alreadySaved);
+      }
+
+      return;
+    }
+
+    setSchedulingPostKey(key);
+    setError("");
+
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) {
+        throw new Error(authError.message);
+      }
+
+      if (!user) {
+        throw new Error(t.signInFirst);
+      }
+
+      const scheduledDate = createScheduledDate(post);
+      const scheduledIso = scheduledDate.toISOString();
+
+      const { error: insertError } = await supabase
+        .from("scheduled_posts")
+        .insert({
+          user_id: user.id,
+          user_email: user.email || null,
+          platform,
+          title: post.title,
+          caption: buildFullCaption(post),
+          description: t.draftDescription,
+          scheduled_time: scheduledIso,
+          scheduled_for: scheduledIso,
+          status: "draft",
+          media_url: null,
+          retry_count: 0,
+          last_error: null,
+          locked_at: null,
+          locked_by: null,
+          external_post_id: null,
+        });
+
+      if (insertError) {
+        throw new Error(insertError.message);
+      }
+
+      setSavedPostKeys((current) =>
+        current.includes(key) ? current : [...current, key]
+      );
+
+      if (showMessage) {
+        setSuccess(
+          t.savedFor(
+            post.title,
+            scheduledDate.toLocaleString(
+              language === "es" ? "es-ES" : "en-US"
+            )
+          )
+        );
+      }
+    } catch (caughtError) {
+      console.error("Could not save planner post:", caughtError);
+
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : t.couldNotSave
+      );
+
+      throw caughtError;
+    } finally {
+      setSchedulingPostKey(null);
+    }
+  }
+
+  async function saveAllPosts() {
+    if (posts.length === 0) {
+      setError(t.generateFirst);
+      return;
+    }
+
+    setSchedulingAll(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const unsavedPosts = posts
+        .map((post, index) => ({ post, index }))
+        .filter(
+          ({ post, index }) =>
+            !savedPostKeys.includes(postKey(post, index))
+        );
+
+      if (unsavedPosts.length === 0) {
+        setSuccess(t.allAlreadySaved);
+        return;
+      }
+
+      for (const item of unsavedPosts) {
+        await savePlannerPost(item.post, item.index, false);
+      }
+
+      setSuccess(t.allSaved(unsavedPosts.length));
+    } catch (caughtError) {
+      console.error("Could not save all planner posts:", caughtError);
+
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : t.notAllSaved
+      );
+    } finally {
+      setSchedulingAll(false);
+      setSchedulingPostKey(null);
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-[#050816] p-5 text-white md:p-8">
+      <div className="mx-auto max-w-6xl">
+        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-300 bg-clip-text text-4xl font-bold text-transparent md:text-5xl">
+              {t.title}
+            </h1>
+
+            <p className="mt-2 text-gray-400">{t.subtitle}</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <LanguageSwitcher />
+
+            <a
+              href="/dashboard"
+              className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-bold"
+            >
+              {t.dashboard}
+            </a>
+
+            <a
+              href="/publishing"
+              className="rounded-xl border border-blue-400/30 bg-blue-500/20 px-4 py-2 text-sm font-bold text-blue-300"
+            >
+              {t.publishing}
+            </a>
+
+            <a
+              href="/calendar"
+              className="rounded-xl border border-purple-400/30 bg-purple-500/20 px-4 py-2 text-sm font-bold text-purple-300"
+            >
+              {t.calendar}
+            </a>
+          </div>
+        </header>
+
+        <section className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            <label className="block">
+              <span className="mb-2 block font-semibold">{t.platform}</span>
+
+              <select
+                value={platform}
+                onChange={(event) => setPlatform(event.target.value)}
+                disabled={generating || schedulingAll}
+                className="w-full rounded-xl border border-white/10 bg-black/30 p-3 disabled:opacity-50"
+              >
+                <option value="instagram">Instagram</option>
+                <option value="facebook">Facebook</option>
+                <option value="tiktok">TikTok</option>
+                <option value="youtube">YouTube Shorts</option>
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block font-semibold">{t.niche}</span>
+
+              <input
+                value={niche}
+                onChange={(event) => setNiche(event.target.value)}
+                disabled={generating || schedulingAll}
+                placeholder={t.nichePlaceholder}
+                className="w-full rounded-xl border border-white/10 bg-black/30 p-3 disabled:opacity-50"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block font-semibold">{t.days}</span>
+
+              <input
+                type="number"
+                value={days}
+                min={1}
+                max={30}
+                disabled={generating || schedulingAll}
+                onChange={(event) => {
+                  const value = Number(event.target.value);
+
+                  setDays(
+                    Math.min(
+                      Math.max(Number.isNaN(value) ? 1 : value, 1),
+                      30
+                    )
+                  );
+                }}
+                className="w-full rounded-xl border border-white/10 bg-black/30 p-3 disabled:opacity-50"
+              />
+
+              <span className="mt-2 block text-xs text-gray-500">
+                {t.daysHelp}
+              </span>
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block font-semibold">{t.tone}</span>
+
+              <select
+                value={tone}
+                onChange={(event) => setTone(event.target.value)}
+                disabled={generating || schedulingAll}
+                className="w-full rounded-xl border border-white/10 bg-black/30 p-3 disabled:opacity-50"
+              >
+                <option value="Educational">{t.educational}</option>
+                <option value="Funny">{t.funny}</option>
+                <option value="Luxury">{t.luxury}</option>
+                <option value="Professional">{t.professional}</option>
+                <option value="Motivational">{t.motivational}</option>
+                <option value="Conversational">{t.conversational}</option>
+              </select>
+            </label>
+
+            <label className="block md:col-span-2">
+              <span className="mb-2 block font-semibold">{t.goal}</span>
+
+              <select
+                value={goal}
+                onChange={(event) => setGoal(event.target.value)}
+                disabled={generating || schedulingAll}
+                className="w-full rounded-xl border border-white/10 bg-black/30 p-3 disabled:opacity-50"
+              >
+                <option value="Grow followers">{t.growFollowers}</option>
+                <option value="Generate leads">{t.generateLeads}</option>
+                <option value="Increase engagement">
+                  {t.increaseEngagement}
+                </option>
+                <option value="Sell products">{t.sellProducts}</option>
+                <option value="Build brand awareness">
+                  {t.buildAwareness}
+                </option>
+              </select>
+            </label>
+          </div>
+
+          {error && (
+            <div className="mt-6 rounded-xl border border-red-400/20 bg-red-500/10 p-4 text-red-300">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="mt-6 rounded-xl border border-green-400/20 bg-green-500/10 p-4 text-green-300">
+              {success}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={generatePlan}
+            disabled={generating || schedulingAll || !niche.trim()}
+            className="mt-6 w-full rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 py-4 text-lg font-bold disabled:opacity-50"
+          >
+            {generating ? t.generatingPosts(days) : t.generatePlan}
+          </button>
+        </section>
+                {generating && (
+          <section className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-purple-400" />
+
+            <h2 className="mt-5 text-xl font-bold">{t.creatingPlan}</h2>
+
+            <p className="mt-2 text-gray-400">{t.creatingDescription}</p>
+          </section>
+        )}
+
+        {!generating && posts.length > 0 && (
+          <>
+            <section className="mb-6 flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-3xl font-bold">
+                  {t.yourPlan(posts.length)}
+                </h2>
+
+                <p className="mt-1 text-gray-400">
+                  {platformLabel(platform)} · {niche} · {toneLabel(tone)}
+                </p>
+
+                <p className="mt-2 text-sm text-yellow-300/80">
+                  {t.draftNotice}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={saveAllPosts}
+                disabled={schedulingAll || posts.length === 0}
+                className="rounded-xl bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 px-6 py-3 font-bold disabled:opacity-50"
+              >
+                {schedulingAll ? t.savingDrafts : t.saveAll}
+              </button>
+            </section>
+
+            <section className="space-y-5">
+              {posts.map((post, index) => {
+                const key = postKey(post, index);
+                const isSaving = schedulingPostKey === key;
+                const isSaved = savedPostKeys.includes(key);
+
+                return (
+                  <article
+                    key={key}
+                    className="rounded-2xl border border-white/10 bg-white/5 p-6"
+                  >
+                    <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <p className="text-sm font-bold text-purple-300">
+                            {t.day} {post.day}
+                          </p>
+
+                          {isSaved && (
+                            <span className="rounded-full border border-green-400/20 bg-green-500/15 px-3 py-1 text-xs font-bold text-green-300">
+                              {t.draftSaved}
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 className="mt-1 text-2xl font-bold">
+                          {post.title}
+                        </h3>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-xs uppercase tracking-wide text-gray-500">
+                          {t.suggestedTime}
+                        </p>
+
+                        <p className="mt-1 text-lg font-bold">
+                          {post.suggested_time}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+                        <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">
+                          {t.hook}
+                        </p>
+
+                        <p className="font-medium text-white">{post.hook}</p>
+                      </div>
+
+                      <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+                        <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">
+                          {t.contentType}
+                        </p>
+
+                        <p className="font-medium text-white">
+                          {post.content_type}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-4">
+                      <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">
+                        {t.caption}
+                      </p>
+
+                      <p className="whitespace-pre-line text-gray-200">
+                        {post.caption}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-4">
+                      <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">
+                        {t.callToAction}
+                      </p>
+
+                      <p className="text-gray-200">{post.call_to_action}</p>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {post.hashtags.map((hashtag, hashtagIndex) => {
+                        const formattedHashtag = hashtag.startsWith("#")
+                          ? hashtag
+                          : `#${hashtag}`;
+
+                        return (
+                          <span
+                            key={`${formattedHashtag}-${hashtagIndex}`}
+                            className="rounded-full border border-purple-400/20 bg-purple-500/15 px-3 py-1 text-sm text-purple-300"
+                          >
+                            {formattedHashtag}
+                          </span>
+                        );
+                      })}
+                    </div>
+                                        <div className="mt-6 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => savePlannerPost(post, index)}
+                        disabled={isSaving || isSaved}
+                        className={`rounded-xl px-5 py-3 font-bold transition ${
+                          isSaved
+                            ? "cursor-default border border-green-400/30 bg-green-500/20 text-green-300"
+                            : "bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90"
+                        }`}
+                      >
+                        {isSaving
+                          ? t.saving
+                          : isSaved
+                          ? t.savedAsDraft
+                          : t.saveAsDraft}
+                      </button>
+
+                      <a
+                        href="/publishing"
+                        className="rounded-xl border border-white/10 bg-white/10 px-5 py-3 font-bold transition hover:bg-white/20"
+                      >
+                        {t.openPublishing}
+                      </a>
+
+                      <a
+                        href="/calendar"
+                        className="rounded-xl border border-blue-400/30 bg-blue-500/20 px-5 py-3 font-bold text-blue-300 transition hover:bg-blue-500/30"
+                      >
+                        {t.viewCalendar}
+                      </a>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          </>
+        )}
+      </div>
+    </main>
+  );
 }
